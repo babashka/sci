@@ -12,7 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
-- JVM: native protocol support (ADR 0013, half 1; the JVM counterpart of the CLJS support in 0.14.55). `copy-var`, `copy-var*` and `copy-ns` on a Clojure protocol var produce a working protocol entry: sci code can implement the protocol on `defrecord`, `deftype` and `reify`, extend sci types with `extend-type`, `extend-protocol` and `extend`, and use `satisfies?`, `extends?` and `instance?`; host code calling the protocol's methods on sci instances dispatches into the sci implementations. A copied protocol method var reaches the host var's current root, so a later `extend` on the host side is visible from sci. Host classes cannot be extended from sci, as on CLJS.
+- JVM: allow sci types to implement host protocols copied with `copy-var`, `copy-var*` or `copy-ns`.
 - Fix [babashka#1874](https://github.com/babashka/babashka/issues/1874): `defmethod`, `prefer-method`, `remove-method` and `get-method` with a sci interface such as `clojure.lang.IDeref` dispatch on the class
 - Fix interop with a `false` argument: `(Boolean. false)` picked the `String` overload
 - Caches resolved JVM instance methods per call site for performance

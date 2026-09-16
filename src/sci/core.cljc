@@ -78,7 +78,7 @@
     "Copies contents from var `sym` to a new sci var. The value `ns` is an
   object created with `sci.core/create-ns`.
 
-  When `sym` names a protocol (on ClojureScript: except `cljs.core/IFn`),
+  When `sym` names a protocol other than `cljs.core/IFn`,
   the sci var holds a protocol entry instead of the raw protocol object.
   Sci code can then implement the protocol on `deftype` and `defrecord`
   types, extend those with `extend-type` and use `satisfies?`. Host code
@@ -108,9 +108,6 @@
                            :cljs #_:clj-kondo/ignore
                            sci.impl.copy-vars$macros/protocol-entry-form) sym info ns)
                       {:ns ~ns}))
-          ;; a JVM protocol is a runtime map, so its var is recognized when
-          ;; the copy runs, like copy-var* does. A method var keeps the normal
-          ;; path, and with it the options, only its value is replaced
           (let [[protocol? method?] #?(:clj (when-not (:ns &env)
                                               (let [v (c/resolve sym)]
                                                 (when (var? v)
@@ -128,8 +125,7 @@
 
 (defn copy-var*
   "Copies Clojure var to SCI var. Runtime analog of compile time `copy-var`.
-  On the JVM a var holding a protocol is copied as a protocol entry, like
-  `copy-var` does (see there)."
+  Copies JVM protocols as protocol entries."
   [clojure-var sci-ns]
   (let [m (meta clojure-var)
         nm (:name m)
@@ -450,9 +446,6 @@
                   v (if-let [var (:var var)]
                       @var
                       (:val var))
-                  ;; a JVM protocol public is copied as a protocol entry, as the
-                  ;; CLJS branch of copy-ns does at macro time, and a method
-                  ;; public as a fn reaching the var's current root
                   v #?(:clj (let [hv (:var var)]
                               (cond (nil? hv) v
                                     (deftype/host-protocol? v)

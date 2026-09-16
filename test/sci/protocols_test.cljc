@@ -467,7 +467,7 @@
                               {:classes #?(:cljd nil :clj nil :cljs {'js #js {:Boolean js/Boolean}})
                                :features #?(:cljd #{:cljd} :clj #{:clj} :cljs #{:cljs})}))))
 
-;;;; Host (JVM) protocols implemented from sci: ADR 0013, half 1
+;;;; Host JVM protocols
 
 #?(:cljd nil :clj (defprotocol HostShape
           (host-area [this])
@@ -512,7 +512,7 @@
          (is (= 12 (ev "(host/host-area (->Rect 3 4))")))
          (is (= 16 (ev "(host/host-area (host/host-scaled (->Sq 2) 2))")) "record field access in the impl")
          (is (= 24 (ev "(host/host-area (host/host-scaled (->Rect 1 1) 4 6))")) "the second arity, on a deftype"))
-       (testing "a host value reaching the copied fn stays the host's"
+       (testing "copied methods dispatch on host values"
          (is (= 25 (ev "(host/host-area (host/->HostSquare 5))"))))
        (testing "satisfies?, extends? and instance? inside sci"
          (is (= [true true false false true false]
@@ -562,7 +562,7 @@
 
 #?(:cljd nil :clj
    (deftest host-protocol-deftype-fn-test
-     (testing "a native entry reaches a :deftype-fn constructor as itself"
+     (testing ":deftype-fn constructors receive native protocol entries"
        (let [seen (atom nil)
              hns (sci/create-ns 'host)
              ctx (sci/init {:classes {'clojure.lang.ILookup clojure.lang.ILookup}
@@ -580,17 +580,17 @@
          (is (utils/native-protocol? @(sci/copy-var HostShape hns)))
          (let [v (sci/copy-var host-area hns {:name 'area})]
            (is (= 'area (:name (meta v))) "options apply to a method var")
-           (is (= 4 (@v (->HostSquare 2))) "and its value reaches the host fn")))
+           (is (= 4 (@v (->HostSquare 2))) "copied methods call the host function")))
        (testing "copy-ns"
          (let [m (sci/copy-ns sci.protocols-test hns)]
            (is (utils/native-protocol? @(get m 'HostShape)))
            (is (= 4 (@(get m 'host-area) (->HostSquare 2))) "method vars reach the host fns")))
-       (testing "new-var on the raw map stays raw, as before"
+       (testing "new-var preserves the raw protocol map"
          (is (not (utils/native-protocol? @(sci/new-var 'HostShape HostShape {:ns hns}))))))))
 
 #?(:cljd nil :clj
    (deftest host-protocol-copy-untouched-test
-     (testing "copying a protocol nobody implements leaves the host protocol alone"
+     (testing "copying a protocol does not extend host classes"
        (let [hns (sci/create-ns 'host)]
          (sci/init {:namespaces {'host {'HostUnused (sci/copy-var* #'HostUnused hns)}}})
          (is (not (extends? HostUnused sci.impl.records.SciRecord)))))))
@@ -602,7 +602,7 @@
 
 #?(:cljd nil :clj
    (deftest host-protocol-fallback-test
-     (testing "a sci instance without an impl reaches the host's Object and interface impls, bridge or not"
+     (testing "sci instances use host Object and interface implementations"
        (let [hns (sci/create-ns 'host)
              ctx (sci/init {:namespaces {'host {'HostDefaulted (sci/copy-var* #'HostDefaulted hns)
                                                 'host-tag (sci/copy-var* #'host-tag hns)}}})

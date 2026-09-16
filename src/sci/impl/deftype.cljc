@@ -263,40 +263,25 @@
      [t proto-map impls]
      (-install-native-protocol-on! (ensure-js-prototype t) proto-map impls)))
 
-;;;; Native host protocols on the JVM (ADR 0013, half 1)
-;;
-;; A JVM protocol dispatches through a registry keyed by class, and every sci
-;; deftype instance is the one SciType class (records: SciRecord, reify: an
-;; ICustomType), so a sci type cannot register itself. Instead the sci type records
-;; its impls in its own Type data (:sci.impl/jvm-impls, keyed by the host
-;; protocol var), and the host protocol is extended ONCE per protocol to sci's
-;; instance classes with a bridge that reads that table. The bridge is
-;; installed on the first implementation, so a copied protocol nobody
-;; implements leaves the host protocol untouched. Retroactive like CLJS:
-;; extend-type after construction is visible to existing instances, since the
-;; bridge reads the table live.
+;;;; Native host protocols on the JVM
+;; Bridges read implementations from each sci type at dispatch time.
 
 #?(:clj
    (defn host-protocol?
-     "True for the value clojure.core/defprotocol defines: a map carrying the
-  protocol's own host var. A sci protocol carries a sci var there."
+     "Returns true for a map whose :var is a host var."
      [v]
      (and (map? v) (instance? clojure.lang.Var (:var v)))))
 
 #?(:clj
    (defn host-protocol-method?
-     "True for a var clojure.core/defprotocol defines for a method: its :protocol
-  metadata is the protocol's host var."
+     "Returns true for a host protocol method var."
      [v]
      (let [p (:protocol (meta v))]
        (and (instance? clojure.lang.Var p) (host-protocol? @p)))))
 
 #?(:clj
    (defn host-protocol-method-fn
-     "The value to copy for a host protocol method var: a fn reaching the var's
-  CURRENT root. clojure.core/extend rebinds every method var of the protocol
-  (-reset-methods), so the fn object a var holds at copy time is a snapshot
-  that never sees a later extension, sci's own bridge included."
+     "Returns a function that calls the current root of host method var hv."
      [hv]
      (fn
        ([a] (@hv a))
@@ -306,7 +291,7 @@
 
 #?(:clj
    (defn- sci-type-impls
-     "The impls sci type t recorded for the host protocol behind var hv."
+     "Returns the implementations on sci type t for host protocol var hv."
      [t hv]
      (get-in (types/getVal t) [:sci.impl/jvm-impls hv])))
 
@@ -316,16 +301,13 @@
 
 #?(:clj
    (defn- host-fallback-impl
-     ;; the bridge classes win as exact class over every impl the host
-     ;; registered on a superclass, interface or Object; on a miss in the sci
-     ;; table, dispatch as the host would have without the bridge
+     ;; Resolve host implementations without the sci bridges.
      [hv x]
      (find-protocol-impl (update @hv :impls #(apply dissoc % bridge-classes)) x)))
 
 #?(:clj
    (defn- native-bridge
-     "The host protocol's method for sci instances: the impl the instance's type
-  recorded, or a reify's method. Worded like Clojure's own miss."
+     "Returns a method that dispatches to sci or host implementations."
      [hv msym]
      (fn [this & args]
        (if-let [f (or (if (instance? sci.impl.types.SciTypeInstance this)
@@ -343,14 +325,10 @@
 
 #?(:clj
    (defn- install-native-bridge!
-     "Extends the host protocol behind var hv to sci's instance classes (deftype,
-  defrecord, reify), once per protocol and JVM."
+     "Extends host protocol var hv to sci instance classes once per JVM."
      [hv method-syms]
      (when-not (contains? @native-bridges hv)
        (let [mmap (into {} (map (fn [m] [(keyword m) (native-bridge hv m)])) method-syms)]
-         ;; the interface covers every reify factory's class (sci's default
-         ;; one, sci.impl.types/Reified, an embedder's); the two sci type
-         ;; classes implement it as well, and win as the exact class
          (doseq [c bridge-classes]
            (clojure.core/extend c @hv mmap))
          (swap! native-bridges conj hv))
@@ -358,10 +336,7 @@
 
 #?(:clj
    (defn host-protocol-entry
-     "Native protocol entry for the host protocol behind var hv (the JVM analog
-  of the CLJS entry sci.core/copy-var expands to): what sci's defrecord,
-  deftype, reify, extend-type, extend-protocol, extend and satisfies? consume.
-  `sci-ns` is the sci namespace it is copied into."
+     "Returns an entry for host protocol var hv in sci namespace sci-ns."
      [hv sci-ns]
      (let [p @hv
            m (meta hv)
@@ -372,10 +347,6 @@
         :methods #{}
         :sigs (:sigs p)
         :native-methods (into {} (map (fn [ms] [ms {}])) method-syms)
-        ;; a sci instance implements it when its type recorded impls for it (the
-        ;; host registry is class-keyed, so clojure.core/satisfies? would answer
-        ;; for every sci instance once any sci type implements it); anything
-        ;; else is the host's question
         :satisfies-fn (fn [x]
                         (if (instance? sci.impl.types.SciTypeInstance x)
                           (or (contains? (:sci.impl/jvm-impls (types/getVal (types/-get-type x))) hv)
@@ -384,9 +355,7 @@
 
 #?(:clj
    (defn -install-native-protocol!
-     "Records method impls for a host protocol (entry created by sci.core/copy-var
-  on a protocol) on sci type `t`, and bridges the host protocol to sci
-  instances if this is its first implementation."
+     "Installs host protocol implementations on sci type t."
      [t proto-map impls]
      (let [declared (:native-methods proto-map)
            hv (:var (:protocol proto-map))]
@@ -503,8 +472,6 @@
                              [method-name bodies]))
                          impls)]
                 (if native?
-                  ;; host protocol, entry created by sci.core/copy-var on a
-                  ;; protocol: record the impls on the sci type (ADR 0013)
                   [(@utils/analyze analyze-ctx
                     `(sci.impl.deftype/-install-native-protocol!
                       ~rec-type ~protocol-name
@@ -572,8 +539,6 @@
                  #?@(:clj [_ (assert-no-jvm-interface protocol protocol-name form nil)])
                  protocol (if (utils/var? protocol) @protocol protocol)]
              (if (utils/native-protocol? protocol)
-               ;; native CLJS protocol, entry created by sci.core/copy-var on
-               ;; a protocol: install on the record type's JS prototype
                (let [method-impls
                      (into {}
                            (map (fn [[method-name bodies]]
@@ -698,8 +663,7 @@
                                `(fn ~@arities))]))
                         @all-methods)
                        field-entries (mapcat (fn [f] [(list 'quote f) f]) fields)
-                       ;; a native entry (sci.core/copy-var on a host protocol)
-                       ;; has no var of its own: it is the value itself
+                       ;; Pass native protocol entries directly.
                        protocols-form (if (seq protocols)
                                        `#{~@(map (fn [p] (if-let [v (:var p)]
                                                            (list 'deref v)
@@ -760,7 +724,6 @@
                                  form))
                             protocol (if (utils/var? protocol) @protocol protocol)]
                         (if (utils/native-protocol? protocol)
-                          ;; native CLJS protocol, entry created by sci.core/copy-var on a protocol
                           (let [method-impls
                                 (into {}
                                       (map (fn [[method-name bodies]]

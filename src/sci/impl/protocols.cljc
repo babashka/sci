@@ -127,10 +127,7 @@
 
 #?(:clj
    (defn -extend-native!
-     "Extends a host protocol (entry created by sci.core/copy-var on a protocol)
-  to a sci type by recording the method impls on it (ADR 0013). A host class
-  is refused, as on CLJS: extending the host protocol to one would change
-  dispatch for every such value in the host program, not just sci's."
+     "Extends a host protocol to a sci type. Throws for host classes."
      [atype proto-map impls]
      (when-not (instance? sci.lang.Type atype)
        (throw (IllegalArgumentException.
@@ -157,9 +154,6 @@
 (defn extend [atype & proto+mmaps]
   (doseq [[proto mmap] (partition 2 proto+mmaps)]
     (if (native-protocol? proto)
-      ;; native protocol entry: CLJS installs on the sci type's JS prototype,
-      ;; at every arity the protocol declares for each given method; the JVM
-      ;; records the impls on the sci type
       #?(:cljs (-extend-native!
                 atype proto
                 (into {}
@@ -393,8 +387,6 @@
        ;; NOTE: what if the protocol doesn't have any methods?
        ;; This probably needs fixing
        :clj (if-let [sf (:satisfies-fn protocol)]
-              ;; native protocol entry created by sci.core/copy-var on a
-              ;; protocol (ADR 0013)
               (sf obj)
               (or
                (when-let [p (:protocol protocol)]
@@ -449,8 +441,6 @@
                              (mms/get-method-impl % atype))
                           (:methods protocol)))
      :clj (if (native-protocol? protocol)
-            ;; a sci type extends it when it recorded impls for it; a host
-            ;; class when the host says so (ADR 0013)
             (let [hv (:var (:protocol protocol))]
               (if (utils/sci-type? atype)
                 (contains? (:sci.impl/jvm-impls (types/getVal atype)) hv)
