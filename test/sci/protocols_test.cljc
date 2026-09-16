@@ -590,3 +590,31 @@
        (let [hns (sci/create-ns 'host)]
          (sci/init {:namespaces {'host {'HostUnused (sci/copy-var* #'HostUnused hns)}}})
          (is (not (extends? HostUnused sci.impl.records.SciRecord)))))))
+
+#?(:clj (defprotocol HostDefaulted (host-tag [this])))
+#?(:clj (extend-protocol HostDefaulted
+          Object (host-tag [_] :object)
+          clojure.lang.IPersistentMap (host-tag [_] :map)))
+
+#?(:clj
+   (deftest host-protocol-fallback-test
+     (testing "a sci instance without an impl reaches the host's Object and interface impls, bridge or not"
+       (let [hns (sci/create-ns 'host)
+             ctx (sci/init {:namespaces {'host {'HostDefaulted (sci/copy-var* #'HostDefaulted hns)
+                                                'host-tag (sci/copy-var* #'host-tag hns)}}})
+             ev #(sci/eval-string* ctx %)
+             check (fn [label]
+                     (testing label
+                       (is (= [:map :object :object]
+                              (ev "[(host/host-tag (->Plain 1)) (host/host-tag (->T)) (host/host-tag (reify Object))]"))
+                           "from sci")
+                       (is (= [:map :object :object]
+                              (mapv host-tag [(ev "(->Plain 1)") (ev "(->T)") (ev "(reify Object)")]))
+                           "from the host")
+                       (is (= [true true]
+                              (ev "[(satisfies? host/HostDefaulted (->Plain 1)) (satisfies? host/HostDefaulted (->T))]")))))]
+         (ev "(defrecord Plain [x]) (deftype T [])")
+         (check "before any sci type implements the protocol")
+         (ev "(defrecord Impl [] host/HostDefaulted (host-tag [_] :sci))")
+         (check "after a sci type implements the protocol")
+         (is (= [:sci :sci] [(ev "(host/host-tag (->Impl))") (host-tag (ev "(->Impl)"))]))))))

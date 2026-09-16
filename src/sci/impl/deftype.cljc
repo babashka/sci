@@ -311,14 +311,27 @@
      (get-in (types/getVal t) [:sci.impl/jvm-impls hv])))
 
 #?(:clj
+   (def ^:private bridge-classes
+     [SciType sci.impl.records.SciRecord sci.impl.types.ICustomType]))
+
+#?(:clj
+   (defn- host-fallback-impl
+     ;; the bridge classes win as exact class over every impl the host
+     ;; registered on a superclass, interface or Object; on a miss in the sci
+     ;; table, dispatch as the host would have without the bridge
+     [hv x]
+     (find-protocol-impl (update @hv :impls #(apply dissoc % bridge-classes)) x)))
+
+#?(:clj
    (defn- native-bridge
      "The host protocol's method for sci instances: the impl the instance's type
   recorded, or a reify's method. Worded like Clojure's own miss."
      [hv msym]
      (fn [this & args]
-       (if-let [f (if (instance? sci.impl.types.SciTypeInstance this)
-                    (get (sci-type-impls (types/-get-type this) hv) msym)
-                    (get (types/getMethods this) msym))]
+       (if-let [f (or (if (instance? sci.impl.types.SciTypeInstance this)
+                        (get (sci-type-impls (types/-get-type this) hv) msym)
+                        (get (types/getMethods this) msym))
+                      (get (host-fallback-impl hv this) (keyword msym)))]
          (apply f this args)
          (throw (IllegalArgumentException.
                  (str "No implementation of method: " (keyword msym)
@@ -338,7 +351,7 @@
          ;; the interface covers every reify factory's class (sci's default
          ;; one, sci.impl.types/Reified, an embedder's); the two sci type
          ;; classes implement it as well, and win as the exact class
-         (doseq [c [SciType sci.impl.records.SciRecord sci.impl.types.ICustomType]]
+         (doseq [c bridge-classes]
            (clojure.core/extend c @hv mmap))
          (swap! native-bridges conj hv))
        nil)))
@@ -365,7 +378,8 @@
         ;; else is the host's question
         :satisfies-fn (fn [x]
                         (if (instance? sci.impl.types.SciTypeInstance x)
-                          (contains? (:sci.impl/jvm-impls (types/getVal (types/-get-type x))) hv)
+                          (or (contains? (:sci.impl/jvm-impls (types/getVal (types/-get-type x))) hv)
+                              (boolean (host-fallback-impl hv x)))
                           (clojure.core/satisfies? @hv x)))})))
 
 #?(:clj
