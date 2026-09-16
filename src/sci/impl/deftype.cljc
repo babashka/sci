@@ -330,9 +330,10 @@
    (defn- install-native-bridge!
      "Extends host protocol var hv to sci instance classes for new methods."
      [hv method-syms]
-     (let [installed (get @native-bridges hv #{})]
-       (when-not (every? installed method-syms)
-         (let [all (into installed method-syms)
+     (let [installed (get @native-bridges hv)]
+       ;; a marker protocol has no methods, its bridge still has to exist
+       (when-not (and installed (every? installed method-syms))
+         (let [all (into (or installed #{}) method-syms)
                mmap (into {} (map (fn [m] [(keyword m) (native-bridge hv m)])) all)]
            (doseq [c bridge-classes]
              (clojure.core/extend c @hv mmap))

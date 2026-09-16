@@ -534,8 +534,11 @@
               (extend Ext host/HostShape {:host-area (fn [_] :extended)})")
          (is (= :extended (ev "(host/host-area (->Ext))"))))
        (testing "a marker protocol"
-         (ev "(defrecord Marked [] host/HostMarker)")
-         (is (= [true false] (ev "[(satisfies? host/HostMarker (->Marked)) (satisfies? host/HostMarker (->Plain 1))]"))))
+         (ev "(defrecord Marked [] host/HostMarker) (deftype MarkedT [] host/HostMarker)")
+         (is (= [true false] (ev "[(satisfies? host/HostMarker (->Marked)) (satisfies? host/HostMarker (->Plain 1))]")))
+         (is (= [true true true]
+                (mapv #(satisfies? HostMarker %) [(ev "(->Marked)") (ev "(->MarkedT)") (ev "(reify host/HostMarker)")]))
+             "the host sees a record, a type and a reify implementing it"))
        (testing "reify"
          (is (= [1 true] (ev "(let [r (reify host/HostShape (host-area [_] 1) (host-scaled [_ k] k))] [(host/host-area r) (satisfies? host/HostShape r)])"))))
        (testing "a host class cannot be extended from sci"
