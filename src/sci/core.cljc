@@ -109,15 +109,22 @@
                            sci.impl.copy-vars$macros/protocol-entry-form) sym info ns)
                       {:ns ~ns}))
           ;; a JVM protocol is a runtime map, so its var is recognized when
-          ;; the copy runs, like copy-var* does
-          (if #?(:clj (and (not (:ns &env))
-                           (let [v (c/resolve sym)]
-                             (and (var? v)
-                                  (or (deftype/host-protocol? @v)
-                                      (deftype/host-protocol-method? v)))))
-                 :cljs false)
-            `(copy-var* (var ~sym) ~ns)
-            `(sci.impl.copy-vars/copy-var ~sym ~ns ~(assoc opts :sci.impl/public true))))))))
+          ;; the copy runs, like copy-var* does. A method var keeps the normal
+          ;; path, and with it the options, only its value is replaced
+          (let [[protocol? method?] #?(:clj (when-not (:ns &env)
+                                              (let [v (c/resolve sym)]
+                                                (when (var? v)
+                                                  [(deftype/host-protocol? @v)
+                                                   (deftype/host-protocol-method? v)])))
+                                       :cljs nil)
+                opts (assoc opts :sci.impl/public true)]
+            (cond protocol?
+                  `(copy-var* (var ~sym) ~ns)
+                  method?
+                  `(sci.impl.copy-vars/copy-var
+                    ~sym ~ns ~(assoc opts :init (list 'sci.impl.deftype/host-protocol-method-fn (list 'var sym))))
+                  :else
+                  `(sci.impl.copy-vars/copy-var ~sym ~ns ~opts))))))))
 
 (defn copy-var*
   "Copies Clojure var to SCI var. Runtime analog of compile time `copy-var`.
