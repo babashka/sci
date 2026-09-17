@@ -719,3 +719,26 @@
              p (ev "(proxy [Object host/HostViaProxy] [] (host-proxy-m [] :proxied))")]
          (is (= :proxied (host-proxy-m p)) "from the host")
          (is (= [:proxied true] (ev "(let [p (proxy [Object host/HostViaProxy] [] (host-proxy-m [] :proxied))] [(host/host-proxy-m p) (satisfies? host/HostViaProxy p)])")) "from sci")))))
+
+#?(:cljd nil :clj (def not-a-protocol {:var #'HostShape :other 1}))
+
+#?(:cljd nil :clj
+   (deftest host-protocol-predicate-test
+     (testing "a map that merely holds a var is copied as itself"
+       (let [hns (sci/create-ns 'host)]
+         (is (= not-a-protocol @(sci/copy-var* #'not-a-protocol hns)))
+         (is (= not-a-protocol @(sci/copy-var not-a-protocol hns)))
+         (is (= not-a-protocol @(get (sci/copy-ns sci.protocols-test hns) 'not-a-protocol)))))))
+
+#?(:cljd nil :clj
+   (deftest host-protocol-reify-satisfies-test
+     (let [hns (sci/create-ns 'host)
+           ctx (sci/init {:namespaces {'host {'HostDefaulted (sci/copy-var* #'HostDefaulted hns)
+                                              'A (sci/copy-var* #'HostReifyFirst hns)
+                                              'B (sci/copy-var* #'HostReifyFirst hns)}}})
+           ev #(sci/eval-string* ctx %)]
+       (testing "a reify reaches the host's Object default, like a record does"
+         (is (= [true true] (ev "[(satisfies? host/HostDefaulted (reify Object)) (satisfies? host/HostDefaulted (reify host/HostDefaulted (host-tag [_] 1)))]"))))
+       (testing "two copies of one protocol agree about a reify"
+         (is (= [true true] (ev "(let [r (reify host/A (host-first [_] 1))] [(satisfies? host/A r) (satisfies? host/B r)])")))
+         (is (= [false false] (ev "(let [r (reify Object)] [(satisfies? host/A r) (satisfies? host/B r)])")))))))

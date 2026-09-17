@@ -363,7 +363,11 @@
                               ;; the slower satisfies?
                               :cljs (instance? sci.impl.types/Reified obj))
                        (types/getProtocols obj))]
-    (contains? protocols protocol)
+    (or (contains? protocols protocol)
+        ;; a native entry: another copy of the same host protocol, or the
+        ;; host's own default for the reify
+        #?(:clj (boolean (when-let [sf (:satisfies-fn protocol)] (sf obj)))
+           :default false))
     ;; can be record that is implementing this protocol
     ;; or a type like String, etc. that implements a protocol via extend-type, etc.
     #?(:cljd (let [p (:protocol protocol)]

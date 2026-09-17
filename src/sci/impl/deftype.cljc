@@ -268,9 +268,11 @@
 
 #?(:clj
    (defn host-protocol?
-     "Returns true for a map whose :var is a host var."
+     "Returns true for the map clojure.core/defprotocol defines."
      [v]
-     (and (map? v) (instance? clojure.lang.Var (:var v)))))
+     (and (map? v)
+          (class? (:on-interface v))
+          (instance? clojure.lang.Var (:var v)))))
 
 #?(:clj
    (defn host-protocol-method?
@@ -300,27 +302,51 @@
      [SciType sci.impl.records.SciRecord sci.impl.types.ICustomType]))
 
 #?(:clj
+   ;; host protocol var -> [root map, root map without the bridge classes, class -> fallback impl]
+   (defonce ^:private stripped-protocols (atom {})))
+
+#?(:clj
    (defn- host-fallback-impl
      ;; Resolve host implementations without the sci bridges.
      [hv x]
-     (find-protocol-impl (update @hv :impls #(apply dissoc % bridge-classes)) x)))
+     ;; find-protocol-impl walks the class hierarchy reflectively on every
+     ;; call, so the result is cached per class until the host protocol's
+     ;; root changes
+     (let [p @hv
+           c (class x)
+           [root stripped by-class] (get @stripped-protocols hv)
+           fresh? (identical? root p)
+           stripped (if fresh? stripped (update p :impls #(apply dissoc % bridge-classes)))
+           by-class (if fresh? by-class {})]
+       (if-let [e (find by-class c)]
+         (val e)
+         (let [impl (find-protocol-impl stripped x)]
+           (swap! stripped-protocols assoc hv [p stripped (assoc by-class c impl)])
+           impl)))))
 
 #?(:clj
    (defn- native-bridge
      "Returns a method that dispatches to sci or host implementations."
      [hv msym]
-     (fn [this & args]
-       (if-let [f (or (if (instance? sci.impl.types.SciTypeInstance this)
-                        (get (sci-type-impls (types/-get-type this) hv) msym)
-                        ;; Check protocol membership before looking up the method name.
-                        (when (some #(identical? hv (:var (:protocol %))) (types/getProtocols this))
-                          (get (types/getMethods this) msym)))
-                      (get (host-fallback-impl hv this) (keyword msym)))]
-         (apply f this args)
-         (throw (IllegalArgumentException.
-                 (str "No implementation of method: " (keyword msym)
-                      " of protocol: " hv
-                      " found for class: " (types/type-impl this))))))))
+     (let [mkey (keyword msym)
+           lookup (fn [this]
+                    (or (if (instance? sci.impl.types.SciTypeInstance this)
+                          (get (sci-type-impls (types/-get-type this) hv) msym)
+                          ;; Check protocol membership before looking up the method name.
+                          (when (some #(identical? hv (:var (:protocol %))) (types/getProtocols this))
+                            (get (types/getMethods this) msym)))
+                        (get (host-fallback-impl hv this) mkey)
+                        (throw (IllegalArgumentException.
+                                (str "No implementation of method: " mkey
+                                     " of protocol: " hv
+                                     " found for class: " (types/type-impl this))))))]
+       ;; fixed arities keep the common calls off the varargs path
+       (fn
+         ([this] ((lookup this) this))
+         ([this a] ((lookup this) this a))
+         ([this a b] ((lookup this) this a b))
+         ([this a b c] ((lookup this) this a b c))
+         ([this a b c & more] (apply (lookup this) this a b c more))))))
 
 #?(:clj
    ;; Maps host protocol vars to bridged method names.
@@ -337,7 +363,7 @@
                mmap (into {} (map (fn [m] [(keyword m) (native-bridge hv m)])) all)]
            (doseq [c bridge-classes]
              (clojure.core/extend c @hv mmap))
-           (swap! native-bridges assoc hv all)))
+           (swap! native-bridges update hv (fnil into #{}) all)))
        nil)))
 
 #?(:clj
@@ -360,10 +386,16 @@
         :sigs (:sigs p)
         :native-methods (into {} (map (fn [ms] [ms {}])) method-syms)
         :satisfies-fn (fn [x]
-                        (if (instance? sci.impl.types.SciTypeInstance x)
-                          (or (contains? (:sci.impl/jvm-impls (types/getVal (types/-get-type x))) hv)
-                              (boolean (host-fallback-impl hv x)))
-                          (clojure.core/satisfies? @hv x)))})))
+                        (cond (instance? sci.impl.types.SciTypeInstance x)
+                              (or (contains? (:sci.impl/jvm-impls (types/getVal (types/-get-type x))) hv)
+                                  (boolean (host-fallback-impl hv x)))
+                              ;; a reify or an embedder's ICustomType: the entries
+                              ;; it lists, compared on the host var, then the
+                              ;; host's own defaults
+                              (instance? sci.impl.types.ICustomType x)
+                              (or (boolean (some #(identical? hv (:var (:protocol %))) (types/getProtocols x)))
+                                  (boolean (host-fallback-impl hv x)))
+                              :else (clojure.core/satisfies? @hv x)))})))
 
 #?(:clj
    (defn -install-native-protocol!
