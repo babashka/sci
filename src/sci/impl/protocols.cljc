@@ -127,13 +127,20 @@
 
 #?(:clj
    (defn -extend-native!
-     "Extends a host protocol to a sci type. Throws for host classes."
+     "Extends a host protocol to a sci type, or to a host class when the ctx is :unrestricted."
      [atype proto-map impls]
-     (when-not (instance? sci.lang.Type atype)
-       (throw (IllegalArgumentException.
-               (str "Protocol " (:name proto-map)
-                    " can only be extended natively to types created with deftype or defrecord in sci"))))
-     (sci.impl.deftype/-install-native-protocol! atype proto-map impls)))
+     (cond (instance? sci.lang.Type atype)
+           (sci.impl.deftype/-install-native-protocol! atype proto-map impls)
+           ;; a host class or nil: process-wide, so only when the embedder
+           ;; opted in with :unrestricted
+           (and (or (class? atype) (nil? atype))
+                (:unrestricted (store/get-ctx)))
+           (clojure.core/extend atype @(:var (:protocol proto-map))
+             (into {} (map (fn [[msym {:keys [impl]}]] [(keyword msym) impl])) impls))
+           :else
+           (throw (IllegalArgumentException.
+                   (str "Protocol " (:name proto-map)
+                        " can only be extended natively to types created with deftype or defrecord in sci"))))))
 
 (def ^:private native-protocol? utils/native-protocol?)
 

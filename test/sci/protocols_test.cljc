@@ -682,3 +682,25 @@
              inst (ev "(deftype Ctor [x] clojure.lang.ILookup (valAt [_ k] x) host/HostViaCtor (host-ctor-m [_] :ctor)) (->Ctor 1)")]
          (is (= :ctor (host-ctor-m inst)) "from the host")
          (is (= [:ctor true] (ev "[(host/host-ctor-m (->Ctor 1)) (satisfies? host/HostViaCtor (->Ctor 1))]")) "from sci")))))
+
+#?(:cljd nil :clj (defprotocol HostOpen (host-open [this])))
+
+#?(:cljd nil :clj
+   (deftest host-protocol-unrestricted-test
+     (let [hns (sci/create-ns 'host)
+           nss {'host {'HostOpen (sci/copy-var* #'HostOpen hns) 'host-open (sci/copy-var* #'host-open hns)}}]
+       (testing "refused by default"
+         (is (thrown-with-msg? Exception #"can only be extended natively"
+                               (sci/eval-string* (sci/init {:namespaces nss})
+                                                 "(extend-type String host/HostOpen (host-open [s] (count s)))"))))
+       (testing "with :unrestricted the host protocol is extended to the class"
+         (let [ctx (sci/init {:namespaces nss :classes {'Long Long 'Boolean Boolean} :unrestricted true})
+               ev #(sci/eval-string* ctx %)]
+           (ev "(extend-type String host/HostOpen (host-open [s] (count s)))
+                (extend-protocol host/HostOpen nil (host-open [_] :nil))
+                (extend Long host/HostOpen {:host-open inc})")
+           (is (= [3 :nil 2 true false] (ev "[(host/host-open \"abc\") (host/host-open nil) (host/host-open 1) (satisfies? host/HostOpen \"x\") (satisfies? host/HostOpen :kw)]")) "from sci")
+           (is (= [3 :nil 2 true] [(host-open "abc") (host-open nil) (host-open 1) (satisfies? HostOpen "x")]) "from the host")))
+       (testing "merge-opts inherits the option"
+         (let [ctx (sci/merge-opts (sci/init {:namespaces nss :classes {'Long Long 'Boolean Boolean} :unrestricted true}) {})]
+           (is (= 2 (sci/eval-string* ctx "(extend-type Boolean host/HostOpen (host-open [_] 2)) (host/host-open true)"))))))))
