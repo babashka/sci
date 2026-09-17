@@ -5,6 +5,7 @@
    [clojure.test :refer [deftest is testing]]
    [sci.core :as sci]
    #?(:clj [sci.impl.deftype])
+   #?(:clj [sci.impl.types])
    #?(:clj [sci.impl.utils :as utils])
    [sci.test-utils :as tu])
   #?@(:cljd [] :clj [(:import [java.lang Long])]))
@@ -665,3 +666,19 @@
                                                   'grow-b (sci/copy-var* grow-b hns)}}})
                g2 (sci/eval-string* ctx "(defrecord G2 [] host/HostGrows (grow-a [_] 1) (grow-b [_] 2)) (->G2)")]
            (is (= [1 2] [(grow-a g2) (grow-b g2)])))))))
+
+#?(:cljd nil :clj (defprotocol HostViaCtor (host-ctor-m [this])))
+
+#?(:cljd nil :clj
+   (deftest host-protocol-deftype-fn-bridge-test
+     (testing "a deftype built by :deftype-fn, first implementation of the protocol, is bridged"
+       (let [hns (sci/create-ns 'host)
+             ctx (sci/init {:classes {'clojure.lang.ILookup clojure.lang.ILookup}
+                            :namespaces {'host {'HostViaCtor (sci/copy-var* #'HostViaCtor hns)
+                                                'host-ctor-m (sci/copy-var* #'host-ctor-m hns)}
+                                         'test.helpers {'reified-ctor (fn [m] (sci.impl.types/->Reified (:interfaces m) (:methods m) (:protocols m)))}}
+                            :deftype-fn (fn [_] {:constructor-fn 'test.helpers/reified-ctor})})
+             ev #(sci/eval-string* ctx %)
+             inst (ev "(deftype Ctor [x] clojure.lang.ILookup (valAt [_ k] x) host/HostViaCtor (host-ctor-m [_] :ctor)) (->Ctor 1)")]
+         (is (= :ctor (host-ctor-m inst)) "from the host")
+         (is (= [:ctor true] (ev "[(host/host-ctor-m (->Ctor 1)) (satisfies? host/HostViaCtor (->Ctor 1))]")) "from sci")))))

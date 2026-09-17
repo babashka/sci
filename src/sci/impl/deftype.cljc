@@ -659,6 +659,12 @@
                    error-hint (:error deftype-fn-result)]
                (if constructor-sym
                  (let [all-methods (atom {})
+                       ;; the embedder's instance is an ICustomType, so the host
+                       ;; protocol needs its bridge even when this type is the
+                       ;; first to implement it
+                       _ (doseq [p protocols]
+                           (when (utils/native-protocol? p)
+                             (-ensure-native-bridge! p)))
                        _ (doseq [[_protocol-name & impls] protocol-impls]
                            (doseq [impl impls]
                              (let [mname (symbol (clojure.core/name (first impl)))
