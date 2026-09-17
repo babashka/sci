@@ -22,7 +22,7 @@ Implementation notes for half 1:
   dispatch throughout the host program.
 - Native protocol methods use the same field bindings as sci protocol methods.
 - Host-side `clojure.core/satisfies?` answers by class. Once a protocol is
-  bridged it returns true for every sci instance. See the known wart below.
+  bridged it returns true for every instance of the bridged classes.
 - A sci instance without an implementation uses the host implementation for
   `Object` or an interface. The lookup result is cached per class until the
   protocol root changes.
@@ -33,7 +33,7 @@ Measurements for half 1, 1M-call loops, medians of seven runs:
 - Bridged sci-to-sci call: 69 ns with a varargs bridge, 61 ns with fixed
   arities. A sci protocol call is about half of that. The rest is the lookup
   from instance to type to implementation table behind Clojure's dispatch.
-  A JVM class per sci type would remove it, see ADR 0016.
+  A JVM class per sci type would remove this lookup. See ADR 0016.
 
 ## Question
 
@@ -43,56 +43,45 @@ sci instances dispatching into interpreted impls? Many "protocols" on the
 JVM are clojure.lang interfaces, which are closed classes. What can be faked
 and at what cost?
 
-## Half 1: real Clojure protocols - fakeable, no bytecode
+## Half 1: Clojure protocols
 
-JVM protocol fns dispatch via an interface fast path and then a runtime
-registry keyed by CLASS (`find-protocol-impl`, populated by
-`clojure.core/extend` - plain data, GraalVM-safe). The registry is the JVM
-analog of the open JS object.
+JVM protocol functions dispatch through an interface or a registry keyed
+by class. `clojure.core/extend` updates this registry without generating
+bytecode.
 
-Obstacle: all sci deftypes share the `SciType` class, so per-sci-type
-registration is impossible. Fix: transpose the CLJS design.
+Sci deftypes share the `SciType` class. A class-level bridge dispatches
+to each sci type's implementation:
 
 - `sci.lang.Type` data gets a per-type method table
   (`:sci.impl/jvm-impls`), the analog of `:sci.impl/js-prototype`.
-- On first implementation of protocol P by any sci type, install ONE
-  class-level bridge: `(extend SciType P {:m (fn [this & args] ...)})`.
-  The bridge looks up `(-get-type this)` -> Type table -> sci impl, and
-  throws missing-protocol on a miss. Idempotent (one bridge per
-  protocol+class).
-- `extend-type` is retroactive for free (the bridge reads the table live).
-  reify routes through `getMethods`; records through `SciRecord` + the same
-  bridge.
+- The first implementation installs a bridge on each sci instance class.
+  The bridge reads the type's method table, then checks host fallbacks.
+  It throws if neither provides an implementation.
+- `extend-type` updates the table used by existing instances.
+  Reify dispatch uses `getMethods`. Records use the `SciRecord` bridge.
 
-Easier than CLJS in one way: JVM protocols are runtime maps with `:sigs`
-and `:on-interface` - detection and method info need no analyzer, no macro,
-no munging, and there is no `:advanced` renaming story. `copy-var`
-detection can be plain runtime code.
+JVM protocols are runtime maps with `:sigs` and `:on-interface`.
+Copying a protocol reads its method names from this map.
 
-Known wart with no clean fix: host-side `satisfies?` over-reports. The
-registry is class-keyed, so once any sci type extends P,
+Host-side `satisfies?` checks the class registry. Once any sci type extends P,
 `(clojure.core/satisfies? P other-sci-instance)` is true from host code
-even when that type did not implement it. Sci's own `satisfies?` can
-consult the Type table (like `:satisfies-fn` on CLJS), but host code sees
-class granularity. The CLJS marker-property trick has no JVM analog.
-Document as a caveat.
+even when that type did not implement it. Sci's own `satisfies?` checks
+the type's implementations or the reify protocol set, then host fallbacks.
 
-<!-- PROSE: opt-in for JVM embedders, not shipped: alter-var-root clojure.core/satisfies? with a fn that answers for sci instances from the type table (SciTypeInstance), the reify protocol set (ICustomType) and the host fallback, delegating otherwise; context-free, hv comes from (:var protocol); one instance? check per host satisfies? call; useless in bb because direct linking bypasses the var -->
+An optional workaround for JVM embedders would replace the root of
+`clojure.core/satisfies?` with `alter-var-root`. The replacement would
+check the type table for `SciTypeInstance` values and the protocol set
+for `ICustomType` values, then host fallbacks. Other values would use
+the original function. SCI does not provide this replacement.
 
-```clojure
-(alter-var-root #'clojure.core/satisfies?
-  (fn [orig]
-    (fn [protocol x]
-      (if (or (instance? sci.impl.types.SciTypeInstance x)
-              (instance? sci.impl.types.ICustomType x))
-        (sci-exact-answer protocol x)
-        (orig protocol x)))))
-```
+The replacement would use `(:var protocol)` to identify the host protocol
+without a sci context. Each call through the var would add up to two
+`instance?` checks. Direct-linked calls bypass the var, so this workaround
+would not affect those calls in babashka.
 
-Payoff: host `datafy`/`nav` (Datafiable/Navigable), `reduce` via
-CollReduce, IKVReduce, and arbitrary library protocols work on sci
-instances. Effort estimate: on the order of the CLJS reify+defrecord
-rounds combined; reuses the concepts, none of the code.
+Host functions such as `datafy` and `nav` can call protocol implementations
+on sci instances. JVM interfaces such as `IKVReduce` require separate
+support, described below.
 
 ## Half 2: clojure.lang interfaces - only via build-time class provisioning
 

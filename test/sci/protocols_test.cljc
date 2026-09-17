@@ -542,7 +542,7 @@
              "host satisfies? recognizes marker protocol implementations"))
        (testing "reify"
          (is (= [1 true] (ev "(let [r (reify host/HostShape (host-area [_] 1) (host-scaled [_ k] k))] [(host/host-area r) (satisfies? host/HostShape r)])"))))
-       (testing "a host class cannot be extended from sci"
+       (testing "host class extensions are rejected by default"
          (is (thrown-with-msg? Exception #"can only be extended natively"
                                (ev "(extend-type String host/HostShape (host-area [s] (count s)) (host-scaled [s _] s))")))
          (is (thrown-with-msg? Exception #"can only be extended natively"
@@ -724,7 +724,7 @@
 
 #?(:cljd nil :clj
    (deftest host-protocol-predicate-test
-     (testing "a map that merely holds a var is copied as itself"
+     (testing "maps without a protocol interface are copied unchanged"
        (let [hns (sci/create-ns 'host)]
          (is (= not-a-protocol @(sci/copy-var* #'not-a-protocol hns)))
          (is (= not-a-protocol @(sci/copy-var not-a-protocol hns)))
@@ -737,8 +737,8 @@
                                               'A (sci/copy-var* #'HostReifyFirst hns)
                                               'B (sci/copy-var* #'HostReifyFirst hns)}}})
            ev #(sci/eval-string* ctx %)]
-       (testing "a reify reaches the host's Object default, like a record does"
+       (testing "reify satisfies a protocol with a host Object implementation"
          (is (= [true true] (ev "[(satisfies? host/HostDefaulted (reify Object)) (satisfies? host/HostDefaulted (reify host/HostDefaulted (host-tag [_] 1)))]"))))
-       (testing "two copies of one protocol agree about a reify"
+       (testing "satisfies? returns the same result for copies of a host protocol"
          (is (= [true true] (ev "(let [r (reify host/A (host-first [_] 1))] [(satisfies? host/A r) (satisfies? host/B r)])")))
          (is (= [false false] (ev "(let [r (reify Object)] [(satisfies? host/A r) (satisfies? host/B r)])")))))))

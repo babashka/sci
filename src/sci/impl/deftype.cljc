@@ -309,9 +309,7 @@
    (defn- host-fallback-impl
      ;; Resolve host implementations without the sci bridges.
      [hv x]
-     ;; find-protocol-impl walks the superclasses and interfaces on every
-     ;; call, so the result is cached per class until the host protocol's
-     ;; root changes
+     ;; Cache host lookups per class until the protocol root changes.
      (let [p @hv
            c (class x)
            [root stripped by-class] (get @stripped-protocols hv)
@@ -325,7 +323,7 @@
            (swap! stripped-protocols update hv
                   (fn [[r s bc :as cur]]
                     (cond (identical? r p) [r s (assoc bc c impl)]
-                          ;; replace only while p is still the root
+                          ;; Replace only while p is still the root.
                           (identical? p @hv) [p stripped {c impl}]
                           :else cur)))
            impl)))))
@@ -395,9 +393,7 @@
                         (cond (instance? sci.impl.types.SciTypeInstance x)
                               (or (contains? (:sci.impl/jvm-impls (types/getVal (types/-get-type x))) hv)
                                   (boolean (host-fallback-impl hv x)))
-                              ;; a reify or an embedder's ICustomType: the entries
-                              ;; it lists, compared on the host var, then the
-                              ;; host's own defaults
+                              ;; Compare protocol entries by host var, then check host fallbacks.
                               (instance? sci.impl.types.ICustomType x)
                               (or (boolean (some #(identical? hv (:var (:protocol %))) (types/getProtocols x)))
                                   (boolean (host-fallback-impl hv x)))

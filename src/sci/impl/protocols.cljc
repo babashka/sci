@@ -365,8 +365,7 @@
                               :cljs (instance? sci.impl.types/Reified obj))
                        (types/getProtocols obj))]
     (or (contains? protocols protocol)
-        ;; a native entry: another copy of the same host protocol, or the
-        ;; host's own default for the reify
+        ;; Check copies of the same host protocol and host fallbacks.
         #?(:clj (boolean (when-let [sf (:satisfies-fn protocol)] (sf obj)))
            :default false))
     ;; can be record that is implementing this protocol
