@@ -1,7 +1,9 @@
 (ns sci.impl.proxy
   {:no-doc true}
   (:refer-clojure :exclude [proxy])
-  (:require [sci.ctx-store :as store]))
+  (:require [sci.ctx-store :as store]
+            [sci.impl.deftype :as deftype]
+            [sci.impl.utils :as utils]))
 
 (defn proxy [form _ classes args & methods]
   (let [abstract-class (first classes)
@@ -26,6 +28,11 @@
   [_form abstract-class interfaces args methods]
   (if-let [pfn (:proxy-fn (store/get-ctx))]
     (let [{interfaces true protocols false} (group-by class? interfaces)]
+      ;; a host protocol entry (sci.core/copy-var on a protocol) needs its
+      ;; bridge even when this proxy is its first implementation
+      (doseq [p protocols]
+        (when (utils/native-protocol? p)
+          (deftype/-ensure-native-bridge! p)))
       (pfn {:class abstract-class
             :interfaces (set interfaces)
             :protocols (set protocols)

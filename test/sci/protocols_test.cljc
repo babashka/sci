@@ -704,3 +704,18 @@
        (testing "merge-opts inherits the option"
          (let [ctx (sci/merge-opts (sci/init {:namespaces nss :classes {'Long Long 'Boolean Boolean} :unrestricted true}) {})]
            (is (= 2 (sci/eval-string* ctx "(extend-type Boolean host/HostOpen (host-open [_] 2)) (host/host-open true)"))))))))
+
+#?(:cljd nil :clj (defprotocol HostViaProxy (host-proxy-m [this])))
+
+#?(:cljd nil :clj
+   (deftest host-protocol-proxy-test
+     (testing "a proxy that is the first implementation of the protocol is bridged"
+       (let [hns (sci/create-ns 'host)
+             ctx (sci/init {:namespaces {'host {'HostViaProxy (sci/copy-var* #'HostViaProxy hns)
+                                                'host-proxy-m (sci/copy-var* #'host-proxy-m hns)}}
+                            :proxy-fn (fn [{:keys [interfaces methods protocols]}]
+                                        (sci.impl.types/->Reified interfaces methods protocols))})
+             ev #(sci/eval-string* ctx %)
+             p (ev "(proxy [Object host/HostViaProxy] [] (host-proxy-m [] :proxied))")]
+         (is (= :proxied (host-proxy-m p)) "from the host")
+         (is (= [:proxied true] (ev "(let [p (proxy [Object host/HostViaProxy] [] (host-proxy-m [] :proxied))] [(host/host-proxy-m p) (satisfies? host/HostViaProxy p)])")) "from sci")))))
