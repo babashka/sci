@@ -28,8 +28,6 @@
   [_form abstract-class interfaces args methods]
   (if-let [pfn (:proxy-fn (store/get-ctx))]
     (let [{interfaces true protocols false} (group-by class? interfaces)]
-      ;; a host protocol entry (sci.core/copy-var on a protocol) needs its
-      ;; bridge even when this proxy is its first implementation
       (doseq [p protocols]
         (when (utils/native-protocol? p)
           (deftype/-ensure-native-bridge! p)))

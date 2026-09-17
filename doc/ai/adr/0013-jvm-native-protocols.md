@@ -18,7 +18,7 @@ Implementation notes for half 1:
 - For sci types, `satisfies?` checks the type's implementations and host
   fallbacks. `extends?` checks the type's implementations. Host values use
   Clojure's protocol predicates.
-- Extending host classes from sci is rejected because it would change
+- Extending host classes or nil requires `:unrestricted true` and changes
   dispatch throughout the host program.
 - Native protocol methods use the same field bindings as sci protocol methods.
 

@@ -328,7 +328,7 @@
 
 #?(:clj
    (defn- install-native-bridge!
-     "Extends host protocol var hv to sci instance classes for new methods."
+     "Extends host protocol var hv to sci instance classes and adds missing methods."
      [hv method-syms]
      (let [installed (get @native-bridges hv)]
        ;; Marker protocols also need bridges.
@@ -659,9 +659,6 @@
                    error-hint (:error deftype-fn-result)]
                (if constructor-sym
                  (let [all-methods (atom {})
-                       ;; the embedder's instance is an ICustomType, so the host
-                       ;; protocol needs its bridge even when this type is the
-                       ;; first to implement it
                        _ (doseq [p protocols]
                            (when (utils/native-protocol? p)
                              (-ensure-native-bridge! p)))

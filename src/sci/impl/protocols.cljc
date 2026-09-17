@@ -127,12 +127,11 @@
 
 #?(:clj
    (defn -extend-native!
-     "Extends a host protocol to a sci type, or to a host class when the ctx is :unrestricted."
+     "Extends a host protocol to a sci type. Allows host classes and nil with :unrestricted."
      [atype proto-map impls]
      (cond (instance? sci.lang.Type atype)
            (sci.impl.deftype/-install-native-protocol! atype proto-map impls)
-           ;; a host class or nil: process-wide, so only when the embedder
-           ;; opted in with :unrestricted
+           ;; Host extensions affect the entire process.
            (and (or (class? atype) (nil? atype))
                 (:unrestricted (store/get-ctx)))
            (clojure.core/extend atype @(:var (:protocol proto-map))
