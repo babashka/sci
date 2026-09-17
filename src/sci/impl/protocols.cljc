@@ -139,7 +139,8 @@
            :else
            (throw (IllegalArgumentException.
                    (str "Protocol " (:name proto-map)
-                        " can only be extended natively to types created with deftype or defrecord in sci"))))))
+                        " can only be extended natively to types created with deftype or defrecord in sci,"
+                        " or to host classes and nil with :unrestricted true"))))))
 
 (def ^:private native-protocol? utils/native-protocol?)
 

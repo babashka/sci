@@ -125,7 +125,7 @@
 
 (defn copy-var*
   "Copies Clojure var to SCI var. Runtime analog of compile time `copy-var`.
-  Copies JVM protocols as protocol entries."
+  Copies JVM protocols as protocol entries, see `copy-var`."
   [clojure-var sci-ns]
   (let [m (meta clojure-var)
         nm (:name m)
@@ -515,7 +515,9 @@
   The selection of vars is done at compile time which is mostly
   important for ClojureScript to not pull in vars into the compiled
   JS. Any additional vars can be added after the fact with sci/copy-var
-  manually."
+  manually.
+
+  Copies protocols as protocol entries, see `copy-var`."
     ([ns-sym sci-ns] `(copy-ns ~ns-sym ~sci-ns nil))
     ([ns-sym sci-ns opts]
      #?(:cljd/clj-host

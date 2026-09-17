@@ -321,8 +321,7 @@
        (if-let [e (find by-class c)]
          (val e)
          (let [impl (find-protocol-impl stripped x)]
-           ;; another thread may have cached for this root meanwhile: merge into
-           ;; its entry, or replace a stale one
+           ;; Merge into an entry cached for this root, else replace the entry.
            (swap! stripped-protocols update hv
                   (fn [[r s bc]]
                     (if (identical? r p)

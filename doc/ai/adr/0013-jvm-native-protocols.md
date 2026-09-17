@@ -21,6 +21,19 @@ Implementation notes for half 1:
 - Extending host classes or nil requires `:unrestricted true` and changes
   dispatch throughout the host program.
 - Native protocol methods use the same field bindings as sci protocol methods.
+- Host-side `clojure.core/satisfies?` answers by class. Once a protocol is
+  bridged it returns true for every sci instance. See the known wart below.
+- A sci instance without an implementation uses the host implementation for
+  `Object` or an interface. The lookup result is cached per class until the
+  protocol root changes.
+
+Measurements for half 1, 1M-call loops, medians of seven runs:
+
+- Host fallback: 3648 ms before the per-class cache, 120 ms after.
+- Bridged sci-to-sci call: 69 ns with a varargs bridge, 61 ns with fixed
+  arities. A sci protocol call is about half of that. The rest is the lookup
+  from instance to type to implementation table behind Clojure's dispatch.
+  A JVM class per sci type would remove it, see ADR 0016.
 
 ## Question
 
