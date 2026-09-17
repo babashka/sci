@@ -742,3 +742,30 @@
        (testing "satisfies? returns the same result for copies of a host protocol"
          (is (= [true true] (ev "(let [r (reify host/A (host-first [_] 1))] [(satisfies? host/A r) (satisfies? host/B r)])")))
          (is (= [false false] (ev "(let [r (reify Object)] [(satisfies? host/A r) (satisfies? host/B r)])")))))))
+
+#?(:cljd nil :clj (defprotocol HostPrior (host-prior [this])))
+#?(:cljd nil :clj (extend-protocol HostPrior sci.impl.records.SciRecord (host-prior [_] :embedder)))
+#?(:cljd nil :clj (def HostAliasVar HostReifyFirst))
+
+#?(:cljd nil :clj
+   (deftest host-protocol-prior-extension-test
+     (testing "an embedder's own extension to a sci class stays the fallback under the bridge"
+       (let [hns (sci/create-ns 'host)
+             ctx (sci/init {:namespaces {'host {'HostPrior (sci/copy-var* #'HostPrior hns)
+                                                'host-prior (sci/copy-var* #'host-prior hns)}}})
+             ev #(sci/eval-string* ctx %)]
+         (ev "(defrecord Impl [] host/HostPrior (host-prior [_] :sci)) (defrecord Plain [])")
+         (is (= [:sci :embedder true] (ev "[(host/host-prior (->Impl)) (host/host-prior (->Plain)) (satisfies? host/HostPrior (->Plain))]")) "from sci")
+         (is (= [:sci :embedder] [(host-prior (ev "(->Impl)")) (host-prior (ev "(->Plain)"))]) "from the host")))))
+
+#?(:cljd nil :clj
+   (deftest host-protocol-alias-var-test
+     (testing "a protocol copied through an alias var keys on the protocol's own var"
+       (let [hns (sci/create-ns 'host)
+             ctx (sci/init {:namespaces {'host {'P (sci/copy-var* #'HostAliasVar hns)
+                                                'host-first (sci/copy-var* #'host-first hns)}}})
+             ev #(sci/eval-string* ctx %)]
+         (is (= 'sci.protocols-test/HostReifyFirst (ev "(:name host/P)")))
+         (is (= [:a true false]
+                (ev "(defrecord A [] host/P (host-first [_] :a)) (defrecord B [])
+                     [(host/host-first (->A)) (satisfies? host/P (->A)) (satisfies? host/P (->B))]")))))))

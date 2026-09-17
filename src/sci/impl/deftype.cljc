@@ -302,6 +302,10 @@
      [SciType sci.impl.records.SciRecord sci.impl.types.ICustomType]))
 
 #?(:clj
+   ;; host protocol var -> what the host had on the bridge classes before the bridge
+   (defonce ^:private prior-impls (atom {})))
+
+#?(:clj
    ;; host protocol var -> [root map, root map without the bridge classes, class -> fallback impl]
    (defonce ^:private stripped-protocols (atom {})))
 
@@ -314,7 +318,10 @@
            c (class x)
            [root stripped by-class] (get @stripped-protocols hv)
            fresh? (identical? root p)
-           stripped (if fresh? stripped (update p :impls #(apply dissoc % bridge-classes)))
+           stripped (if fresh?
+                      stripped
+                      ;; the bridge classes dispatch as they did before the bridge
+                      (update p :impls #(merge (apply dissoc % bridge-classes) (get @prior-impls hv))))
            by-class (if fresh? by-class {})]
        (if-let [e (find by-class c)]
          (val e)
@@ -363,6 +370,8 @@
      (let [installed (get @native-bridges hv)]
        ;; Marker protocols also need bridges.
        (when-not (and installed (every? installed method-syms))
+         (when-not installed
+           (swap! prior-impls assoc hv (select-keys (:impls @hv) bridge-classes)))
          (let [all (into (or installed #{}) method-syms)
                mmap (into {} (map (fn [m] [(keyword m) (native-bridge hv m)])) all)]
            (doseq [c bridge-classes]
@@ -381,6 +390,8 @@
      "Returns an entry for host protocol var hv in sci namespace sci-ns."
      [hv sci-ns]
      (let [p @hv
+           ;; an alias var derefs to the same map, and the map names its own var
+           hv (:var p)
            m (meta hv)
            method-syms (mapv (comp :name val) (:sigs p))]
        {:protocol p
