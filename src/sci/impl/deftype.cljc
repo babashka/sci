@@ -309,7 +309,7 @@
    (defn- host-fallback-impl
      ;; Resolve host implementations without the sci bridges.
      [hv x]
-     ;; find-protocol-impl walks the class hierarchy reflectively on every
+     ;; find-protocol-impl walks the superclasses and interfaces on every
      ;; call, so the result is cached per class until the host protocol's
      ;; root changes
      (let [p @hv
@@ -321,7 +321,13 @@
        (if-let [e (find by-class c)]
          (val e)
          (let [impl (find-protocol-impl stripped x)]
-           (swap! stripped-protocols assoc hv [p stripped (assoc by-class c impl)])
+           ;; another thread may have cached for this root meanwhile: merge into
+           ;; its entry, or replace a stale one
+           (swap! stripped-protocols update hv
+                  (fn [[r s bc]]
+                    (if (identical? r p)
+                      [r s (assoc bc c impl)]
+                      [p stripped {c impl}])))
            impl)))))
 
 #?(:clj
