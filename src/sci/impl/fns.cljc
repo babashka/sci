@@ -170,9 +170,40 @@
                            ret))))))))]
      f)))
 
-(defn lookup-by-arity [arities arity]
-  (or (get arities arity)
-      (:variadic arities)))
+(defn- lookup-arity [fixed-fns variadic-fn variadic-min fn-name macro? arg-count]
+  (let [f (when (< arg-count (alength #?(:cljd ^List fixed-fns :default ^objects fixed-fns)))
+            (aget #?(:cljd ^List fixed-fns :default ^objects fixed-fns) arg-count))]
+    (if (nil? f)
+      (if (and (not (nil? variadic-fn))
+               (>= arg-count variadic-min))
+        variadic-fn
+        (throw (new #?(:cljd Exception
+                       :clj Exception
+                       :cljs js/Error)
+                    (let [actual-count (if macro? (- arg-count 2)
+                                           arg-count)]
+                      (str "Cannot call " fn-name " with " actual-count " arguments")))))
+      f)))
+
+(defn multi-arity-dispatch
+  "Returns the fn for a multi-arity fn*. fixed-fns is an array of the fixed
+  arity fns indexed by arg count, with nil for an arity that does not exist.
+  variadic-fn takes every arg count from variadic-min up."
+  [fixed-fns variadic-fn variadic-min fn-name macro?]
+  (fn multi-arity
+    ([]
+     ((lookup-arity fixed-fns variadic-fn variadic-min fn-name macro? 0)))
+    ([a]
+     ((lookup-arity fixed-fns variadic-fn variadic-min fn-name macro? 1) a))
+    ([a b]
+     ((lookup-arity fixed-fns variadic-fn variadic-min fn-name macro? 2) a b))
+    ([a b c]
+     ((lookup-arity fixed-fns variadic-fn variadic-min fn-name macro? 3) a b c))
+    ([a b c d]
+     ((lookup-arity fixed-fns variadic-fn variadic-min fn-name macro? 4) a b c d))
+    ([a b c d & more]
+     (apply (lookup-arity fixed-fns variadic-fn variadic-min fn-name macro? (+ 4 (count more)))
+            a b c d more))))
 
 (defn fn-arity-map [ctx enclosed-array fn-name macro? fn-bodies]
   (reduce
