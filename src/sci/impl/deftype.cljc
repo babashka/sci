@@ -331,7 +331,7 @@
      "Extends host protocol var hv to sci instance classes for new methods."
      [hv method-syms]
      (let [installed (get @native-bridges hv)]
-       ;; a marker protocol has no methods, its bridge still has to exist
+       ;; Marker protocols also need bridges.
        (when-not (and installed (every? installed method-syms))
          (let [all (into (or installed #{}) method-syms)
                mmap (into {} (map (fn [m] [(keyword m) (native-bridge hv m)])) all)]
