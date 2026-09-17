@@ -19,6 +19,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Bump edamame to `1.6.43`
 - Fix [#1094](https://github.com/babashka/sci/issues/1094): a call to a multi-arity fn created a new fn for the called arity on every call, 25x slower than a single-arity call in CLJS
 - Calling a multi-arity fn with fewer args than its variadic arity takes throws `Cannot call f with n arguments`
+- CLJS: creating a closure inside a jitted fn is 4x to 9x faster, and creating a multi-arity fn compiles instead of escaping to the interpreter
 
 ## 0.15.58
 
