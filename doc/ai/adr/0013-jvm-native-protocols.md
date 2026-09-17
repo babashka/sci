@@ -77,6 +77,18 @@ consult the Type table (like `:satisfies-fn` on CLJS), but host code sees
 class granularity. The CLJS marker-property trick has no JVM analog.
 Document as a caveat.
 
+<!-- PROSE: opt-in for JVM embedders, not shipped: alter-var-root clojure.core/satisfies? with a fn that answers for sci instances from the type table (SciTypeInstance), the reify protocol set (ICustomType) and the host fallback, delegating otherwise; context-free, hv comes from (:var protocol); one instance? check per host satisfies? call; useless in bb because direct linking bypasses the var -->
+
+```clojure
+(alter-var-root #'clojure.core/satisfies?
+  (fn [orig]
+    (fn [protocol x]
+      (if (or (instance? sci.impl.types.SciTypeInstance x)
+              (instance? sci.impl.types.ICustomType x))
+        (sci-exact-answer protocol x)
+        (orig protocol x)))))
+```
+
 Payoff: host `datafy`/`nav` (Datafiable/Navigable), `reduce` via
 CollReduce, IKVReduce, and arbitrary library protocols work on sci
 instances. Effort estimate: on the order of the CLJS reify+defrecord

@@ -323,10 +323,11 @@
          (let [impl (find-protocol-impl stripped x)]
            ;; Merge into an entry cached for this root, else replace the entry.
            (swap! stripped-protocols update hv
-                  (fn [[r s bc]]
-                    (if (identical? r p)
-                      [r s (assoc bc c impl)]
-                      [p stripped {c impl}])))
+                  (fn [[r s bc :as cur]]
+                    (cond (identical? r p) [r s (assoc bc c impl)]
+                          ;; replace only while p is still the root
+                          (identical? p @hv) [p stripped {c impl}]
+                          :else cur)))
            impl)))))
 
 #?(:clj
