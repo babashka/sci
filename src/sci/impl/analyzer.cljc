@@ -367,22 +367,28 @@
               m)]
     m))
 
-(defn single-arity-fn [bindings-fn fn-body fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro?
-                       #?@(:cljs [capture-pairs enclosed-array-cnt])]
+(defn fn-body-maker
+  "Returns (fn [ctx enclosed-array]) that makes the fn for one arity body."
+  [fn-body fn-name nsm macro?]
   (let [fixed-arity (:fixed-arity fn-body)
         copy-enclosed->invocation (:copy-enclosed->invocation fn-body)
         invoc-size (:invoc-size fn-body)
         body (:body fn-body)
         vararg-idx (:vararg-idx fn-body)
         #?@(:cljs [this-as-idx (:this-as-idx fn-body)])
+        interpreted (fn [ctx enclosed-array]
+                      (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
+                               body invoc-size nsm vararg-idx #?(:cljs this-as-idx)))]
+    #?(:cljs (jit/fn-maker fn-body interpreted)
+       :default interpreted)))
+
+(defn single-arity-fn [bindings-fn fn-body fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro?
+                       #?@(:cljs [capture-pairs enclosed-array-cnt])]
+  (let [maker (fn-body-maker fn-body fn-name nsm macro?)
         node
         (sci.impl.types/->Node
          (let [enclosed-array (bindings-fn bindings)
-               f #?(:cljs (jit/make-fn fn-body ctx enclosed-array
-                                       (fn [] (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
-                                                       body invoc-size nsm vararg-idx this-as-idx)))
-                    :default (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
-                                      body invoc-size nsm vararg-idx))
+               f (maker ctx enclosed-array)
                f (if (nil? fn-meta) f
                      (let [fn-meta (t/eval fn-meta ctx bindings)]
                        (vary-meta f merge fn-meta)))
@@ -410,27 +416,12 @@
          (t/attach-ast
           node
           [:mkfn (fn [ctx enclosed-array]
-                   (let [f (jit/make-fn fn-body ctx enclosed-array
-                                        (fn [] (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
-                                                        body invoc-size nsm vararg-idx this-as-idx)))]
+                   (let [f (maker ctx enclosed-array)]
                      (when self-ref?
                        (aset ^objects enclosed-array self-ref-in-enclosed-idx f))
                      f))
            capture-pairs enclosed-array-cnt]))
        :default node)))
-
-(defn multi-arity-fn-body [fn-body fn-name nsm macro?]
-  (let [fixed-arity (:fixed-arity fn-body)
-        copy-enclosed->invocation (:copy-enclosed->invocation fn-body)
-        invoc-size (:invoc-size fn-body)
-        body (:body fn-body)
-        vararg-idx (:vararg-idx fn-body)]
-    (fn [ctx enclosed-array]
-      #?(:cljs (jit/make-fn fn-body ctx enclosed-array
-                            (fn [] (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
-                                            body invoc-size nsm vararg-idx (:this-as-idx fn-body))))
-         :default (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
-                           body invoc-size nsm vararg-idx)))))
 
 (defn analyze-fn* [ctx [fn-sym name? & body :as fn-expr]]
   (let [fn-expr-m (meta fn-expr)
@@ -588,25 +579,34 @@
                          fixed-cnt (if (seq fixed-bodies)
                                      (inc (apply max (map :fixed-arity fixed-bodies)))
                                      0)
-                         fixed-makers (mapv (fn [fn-body]
-                                              [(:fixed-arity fn-body)
-                                               (multi-arity-fn-body fn-body fn-name nsm macro?)])
-                                            fixed-bodies)
+                         ;; one fn that fills every fixed arity slot
+                         fill-fixed (reduce
+                                     (fn [fill fn-body]
+                                       (let [arity (:fixed-arity fn-body)
+                                             maker (fn-body-maker fn-body fn-name nsm macro?)]
+                                         (fn [ctx enclosed-array fixed-fns]
+                                           (fill ctx enclosed-array fixed-fns)
+                                           (aset #?(:cljd ^List fixed-fns :default ^objects fixed-fns)
+                                                 arity (maker ctx enclosed-array)))))
+                                     (fn [_ctx _enclosed-array _fixed-fns] nil)
+                                     fixed-bodies)
                          variadic-maker (when variadic-body
-                                          (multi-arity-fn-body variadic-body fn-name nsm macro?))
-                         variadic-min (when variadic-body (:fixed-arity variadic-body))]
+                                          (fn-body-maker variadic-body fn-name nsm macro?))
+                         variadic-min (when variadic-body (:fixed-arity variadic-body))
+                         mk (fn [ctx enclosed-array]
+                              ;; indexed by arg count
+                              (let [fixed-fns #?(:cljd (#/(List/filled dynamic) fixed-cnt nil)
+                                                 :default (object-array fixed-cnt))]
+                                (fill-fixed ctx enclosed-array fixed-fns)
+                                (fns/multi-arity-dispatch
+                                 fixed-fns
+                                 (when variadic-maker
+                                   (variadic-maker ctx enclosed-array))
+                                 variadic-min fn-name macro?)))
+                         node
                      (sci.impl.types/->Node
                       (let [enclosed-array (bindings-fn bindings)
-                            ;; indexed by arg count
-                            fixed-fns #?(:cljd (#/(List/filled dynamic) fixed-cnt nil)
-                                         :default (object-array fixed-cnt))
-                            _ (run! (fn [[arity maker]]
-                                      (aset #?(:cljd ^List fixed-fns :default ^objects fixed-fns)
-                                            arity (maker ctx enclosed-array)))
-                                    fixed-makers)
-                            variadic-fn (when variadic-maker
-                                          (variadic-maker ctx enclosed-array))
-                            f (fns/multi-arity-dispatch fixed-fns variadic-fn variadic-min fn-name macro?)
+                            f (mk ctx enclosed-array)
                             f (if (nil? fn-meta) f
                                   (let [fn-meta (t/eval fn-meta ctx bindings)]
                                     (vary-meta f merge fn-meta)))
@@ -622,7 +622,20 @@
                                 self-ref-in-enclosed-idx
                                 f))
                         f)
-                      nil)))
+                      nil)]
+                     #?(:cljs
+                        ;; same fn-creation ast as single-arity-fn
+                        (if (or fn-meta macro?)
+                          node
+                          (t/attach-ast
+                           node
+                           [:mkfn (fn [ctx enclosed-array]
+                                    (let [f (mk ctx enclosed-array)]
+                                      (when self-ref?
+                                        (aset ^objects enclosed-array self-ref-in-enclosed-idx f))
+                                      f))
+                            capture-pairs enclosed-array-cnt]))
+                        :default node)))
         tag (:tag fn-expr-m)
         arglists (when defn-name (:arglists analyzed-bodies))]
     (cond-> ret-node
