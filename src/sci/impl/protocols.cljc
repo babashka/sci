@@ -125,8 +125,20 @@
                               " can only be extended natively to types created with deftype or defrecord in sci"))))
      (sci.impl.deftype/-install-native-protocol! atype proto-map impls)))
 
-(defn ^:private native-protocol? [proto-data]
-  (boolean (and (map? proto-data) (:marker-setter proto-data))))
+#?(:clj
+   (defn -extend-native!
+     "Extends a host protocol (entry created by sci.core/copy-var on a protocol)
+  to a sci type by recording the method impls on it (ADR 0013). A host class
+  is refused, as on CLJS: extending the host protocol to one would change
+  dispatch for every such value in the host program, not just sci's."
+     [atype proto-map impls]
+     (when-not (instance? sci.lang.Type atype)
+       (throw (IllegalArgumentException.
+               (str "Protocol " (:name proto-map)
+                    " can only be extended natively to types created with deftype or defrecord in sci"))))
+     (sci.impl.deftype/-install-native-protocol! atype proto-map impls)))
+
+(def ^:private native-protocol? utils/native-protocol?)
 
 (defn ^:private native-method-impls
   "Builds the impls map consumed by -install-native-protocol! from
@@ -145,8 +157,9 @@
 (defn extend [atype & proto+mmaps]
   (doseq [[proto mmap] (partition 2 proto+mmaps)]
     (if (native-protocol? proto)
-      ;; native CLJS protocol: install on the sci type's JS prototype, at
-      ;; every arity the protocol declares for each given method
+      ;; native protocol entry: CLJS installs on the sci type's JS prototype,
+      ;; at every arity the protocol declares for each given method; the JVM
+      ;; records the impls on the sci type
       #?(:cljs (-extend-native!
                 atype proto
                 (into {}
@@ -155,6 +168,12 @@
                                [msym {:arities (set (keys (:setters (get (:native-methods proto) msym))))
                                       :impl f}])))
                       mmap))
+         :clj (-extend-native!
+               atype proto
+               (into {}
+                     (map (fn [[meth-name f]]
+                            [(symbol (name meth-name)) {:impl f}]))
+                     mmap))
          :default nil)
       (let [extend-via-metadata (:extend-via-metadata proto)
             proto-ns (:ns proto)
@@ -373,10 +392,14 @@
                 (find-matching-non-default-method protocol obj)))
        ;; NOTE: what if the protocol doesn't have any methods?
        ;; This probably needs fixing
-       :clj (or
-             (when-let [p (:protocol protocol)]
-               (clojure.core/satisfies? p obj))
-             (find-matching-non-default-method protocol obj)))))
+       :clj (if-let [sf (:satisfies-fn protocol)]
+              ;; native protocol entry created by sci.core/copy-var on a
+              ;; protocol (ADR 0013)
+              (sf obj)
+              (or
+               (when-let [p (:protocol protocol)]
+                 (clojure.core/satisfies? p obj))
+               (find-matching-non-default-method protocol obj))))))
 
 ;; clojure.core/inst? only sees types that extended the host protocol, so it
 ;; misses sci types that implemented sci's clojure.core/Inst
@@ -425,4 +448,12 @@
   #?(:cljd (boolean (some #(when (instance? mms/SciMultiFn %)
                              (mms/get-method-impl % atype))
                           (:methods protocol)))
+     :clj (if (native-protocol? protocol)
+            ;; a sci type extends it when it recorded impls for it; a host
+            ;; class when the host says so (ADR 0013)
+            (let [hv (:var (:protocol protocol))]
+              (if (utils/sci-type? atype)
+                (contains? (:sci.impl/jvm-impls (types/getVal atype)) hv)
+                (clojure.core/extends? @hv atype)))
+            (boolean (some #(get-method % atype) (:methods protocol))))
      :default (boolean (some #(get-method % atype) (:methods protocol)))))

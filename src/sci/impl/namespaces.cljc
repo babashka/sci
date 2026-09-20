@@ -936,13 +936,13 @@
    '->type-impl sci.impl.deftype/->type-impl
    '-inner-impl sci.impl.types/getVal
    '-mutate sci.impl.types/-mutate
-   #?@(:cljs ['-install-native-protocol! sci.impl.deftype/-install-native-protocol!])
+   #?@(:cljd [] :default ['-install-native-protocol! sci.impl.deftype/-install-native-protocol!])
    'type types/type-impl})
 
 (def sci-impl-protocols
   {:obj (sci.lang/->Namespace 'sci.impl.protocols nil)
    :private true
-   #?@(:cljs ['-extend-native! sci.impl.protocols/-extend-native!])
+   #?@(:cljd [] :default ['-extend-native! sci.impl.protocols/-extend-native!])
    'type->str sci.impl.protocols/type->str})
 
 ;;;; REPL vars

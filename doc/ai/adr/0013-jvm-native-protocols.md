@@ -1,6 +1,53 @@
 # ADR 0013: Bringing native protocol support to the JVM side
 
-Status: analysis only, nothing implemented. Follows ADR 0011/0012 (CLJS).
+Status: half 1 implemented (branch `host-protocols`); half 2 analysis only.
+Follows ADR 0011/0012 (CLJS).
+
+Implementation notes for half 1 (delta from the plan below):
+- Detection is runtime, as predicted: `sci.impl.deftype/host-protocol?` is
+  "a map whose `:var` is a `clojure.lang.Var`", the shape
+  `clojure.core/defprotocol` defines. `copy-var*`, the public `copy-var`
+  macro (which resolves the var at macro time and defers to `copy-var*`)
+  and `copy-ns` all produce the entry; `new-var` on a raw protocol map stays
+  raw, so the pre-existing `{:protocol p/IKVReduce ...}` shape is untouched.
+- The entry mirrors the CLJS one: `:protocol`, `:name`, `:ns`, `:methods #{}`,
+  `:sigs`, `:native-methods` (method name -> `{}`; what `-install-native-
+  protocol!` validates against and `utils/native-protocol?` keys on, shared
+  with CLJS), `:satisfies-fn`. No `:marker-setter`.
+- The per-type table is `:sci.impl/jvm-impls` in the `sci.lang.Type` data,
+  keyed by the host protocol var, method symbol -> sci fn. `extend-type`
+  after construction is visible to existing instances because the bridge
+  reads the table live; verified in the tests.
+- One bridge per protocol per JVM, installed by the first
+  `-install-native-protocol!` and remembered in a private `native-bridges`
+  atom: `clojure.core/extend` of the host protocol to `SciType`, `SciRecord`
+  and the `ICustomType` INTERFACE (not the `Reified` class: sci's default
+  `:reify-fn` on the JVM builds a `reify` implementing `ICustomType`, and so
+  may an embedder's factory; the interface covers all of them, the two sci
+  classes win as exact classes). A copied protocol nobody implements leaves
+  the host protocol untouched, which a test pins.
+- Found on the way, not in the plan: `clojure.core/extend` REBINDS every
+  method var of the protocol (`-reset-methods` builds a fresh fn around a new
+  `MethodImplCache`), so the fn object a method var holds at copy time is a
+  snapshot that never sees a later extension, sci's own bridge included.
+  The first host-side call worked and the same call from sci failed with
+  Clojure's own "No implementation" until this was understood. A host
+  protocol METHOD var (`:protocol` metadata naming a host protocol var) is
+  therefore copied as a fn that derefs the var per call
+  (`host-protocol-method-fn`), by `copy-var*`, `copy-var` and `copy-ns`.
+- `satisfies?` consults `:satisfies-fn` first on the JVM too: a sci instance
+  satisfies the protocol when its type recorded impls for it, anything else
+  is `clojure.core/satisfies?`'s answer. This is the sci-side answer to the
+  over-reporting wart below; host code still sees class granularity.
+  `extends?` answers the same way for a `sci.lang.Type`, and defers to
+  `clojure.core/extends?` for a class.
+- Host classes are refused as `extend-type`/`extend-protocol`/`extend`
+  targets for a native entry, for the reason ADR 0011 rejected base types:
+  extending the host protocol to `String` or `Object` from sci changes
+  dispatch for every such value in the host program. Same message as CLJS.
+- Host-protocol impls in sci are keyed by the type, so `deftype` methods get
+  the same field-binding transform as the defmethod path
+  (`standard-scitype-path` shares `method-bodies` between the two).
 
 ## Question
 

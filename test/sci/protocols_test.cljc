@@ -4,6 +4,7 @@
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
    [sci.core :as sci]
+   #?(:clj [sci.impl.utils :as utils])
    [sci.test-utils :as tu])
   #?@(:cljd [] :clj [(:import [java.lang Long])]))
 
@@ -464,3 +465,128 @@
   (is (true? (sci/eval-string "(defprotocol IFoo) (extend-type #?(:cljd bool :clj (class true) :cljs boolean) IFoo) (satisfies? IFoo false)"
                               {:classes #?(:cljd nil :clj nil :cljs {'js #js {:Boolean js/Boolean}})
                                :features #?(:cljd #{:cljd} :clj #{:clj} :cljs #{:cljs})}))))
+
+;;;; Host (JVM) protocols implemented from sci: ADR 0013, half 1
+
+#?(:clj (defprotocol HostShape
+          (host-area [this])
+          (host-scaled [this k] [this k l])))
+#?(:clj (defprotocol HostMarker))
+#?(:clj (defprotocol HostUnused (host-unused [this])))
+#?(:clj (defrecord HostSquare [s]
+          HostShape
+          (host-area [_] (* s s))
+          (host-scaled [_ k] (->HostSquare (* s k)))
+          (host-scaled [_ k l] (->HostSquare (* s k l)))))
+
+#?(:clj
+   (defn- host-ctx []
+     (let [hns (sci/create-ns 'host)
+           ctx (sci/init {:namespaces {'host {'HostShape (sci/copy-var* #'HostShape hns)
+                                              'HostMarker (sci/copy-var* #'HostMarker hns)
+                                              'host-area (sci/copy-var* #'host-area hns)
+                                              'host-scaled (sci/copy-var* #'host-scaled hns)
+                                              '->HostSquare (sci/copy-var* #'->HostSquare hns)}}})]
+       (sci/eval-string* ctx "
+(defrecord Sq [s] host/HostShape
+  (host-area [_] (* s s))
+  (host-scaled [_ k] (->Sq (* s k)))
+  (host-scaled [_ k l] (->Sq (* s k l))))
+(deftype Rect [w h] host/HostShape
+  (host-area [_] (* w h))
+  (host-scaled [_ k] (->Rect (* w k) (* h k)))
+  (host-scaled [_ k l] (->Rect (* w k) (* h l))))
+(defrecord Plain [x])")
+       ctx)))
+
+#?(:clj
+   (deftest host-protocol-test
+     (let [ctx (host-ctx)
+           ev #(sci/eval-string* ctx %)]
+       (testing "the copied var holds a protocol entry, not the host map"
+         (is (= 'sci.protocols-test/HostShape (ev "(:name host/HostShape)")))
+         (is (= '#{host-area host-scaled} (set (ev "(keys (:native-methods host/HostShape))")))))
+       (testing "defrecord and deftype implementations, called through the host fn"
+         (is (= 9 (ev "(host/host-area (->Sq 3))")))
+         (is (= 12 (ev "(host/host-area (->Rect 3 4))")))
+         (is (= 16 (ev "(host/host-area (host/host-scaled (->Sq 2) 2))")) "record field access in the impl")
+         (is (= 24 (ev "(host/host-area (host/host-scaled (->Rect 1 1) 4 6))")) "the second arity, on a deftype"))
+       (testing "a host value reaching the copied fn stays the host's"
+         (is (= 25 (ev "(host/host-area (host/->HostSquare 5))"))))
+       (testing "satisfies?, extends? and instance? inside sci"
+         (is (= [true true false false true false]
+                (ev "[(satisfies? host/HostShape (->Sq 1)) (satisfies? host/HostShape (->Rect 1 1))
+                      (satisfies? host/HostShape (->Plain 1)) (satisfies? host/HostShape 42)
+                      (satisfies? host/HostShape (host/->HostSquare 1)) (satisfies? host/HostShape nil)]")))
+         (is (= [true false true] (ev "[(extends? host/HostShape Sq) (extends? host/HostShape Plain) (extends? host/HostShape (class (host/->HostSquare 1)))]")))
+         (is (= [true false] (ev "[(instance? host/HostShape (->Sq 1)) (instance? host/HostShape (->Plain 1))]"))))
+       (testing "a sci record that does not implement it is refused with the host's message"
+         (is (thrown-with-msg? Exception #"No implementation of method: :host-area of protocol: #'sci.protocols-test/HostShape found for class: user.Plain"
+                               (ev "(host/host-area (->Plain 1))"))))
+       (testing "extend-type and extend-protocol on sci types, retroactively"
+         (ev "(def p (->Plain 7))
+              (extend-type Plain host/HostShape (host-area [this] (:x this)) (host-scaled ([_ k] k) ([_ k l] [k l])))")
+         (is (= [7 2 [3 4] true] (ev "[(host/host-area p) (host/host-scaled p 2) (host/host-scaled p 3 4) (satisfies? host/HostShape p)]")))
+         (ev "(defrecord Tri [b h]) (extend-protocol host/HostShape Tri (host-area [t] (/ (* (:b t) (:h t)) 2)) (host-scaled ([_ _] nil) ([_ _ _] nil)))")
+         (is (= 6 (ev "(host/host-area (->Tri 3 4))")))
+         (ev "(defrecord Ext [])
+              (extend Ext host/HostShape {:host-area (fn [_] :extended)})")
+         (is (= :extended (ev "(host/host-area (->Ext))"))))
+       (testing "a marker protocol"
+         (ev "(defrecord Marked [] host/HostMarker)")
+         (is (= [true false] (ev "[(satisfies? host/HostMarker (->Marked)) (satisfies? host/HostMarker (->Plain 1))]"))))
+       (testing "reify"
+         (is (= [1 true] (ev "(let [r (reify host/HostShape (host-area [_] 1) (host-scaled [_ k] k))] [(host/host-area r) (satisfies? host/HostShape r)])"))))
+       (testing "a host class cannot be extended from sci"
+         (is (thrown-with-msg? Exception #"can only be extended natively"
+                               (ev "(extend-type String host/HostShape (host-area [s] (count s)) (host-scaled [s _] s))")))
+         (is (thrown-with-msg? Exception #"can only be extended natively"
+                               (ev "(extend-protocol host/HostShape Object (host-area [_] 0) (host-scaled [_ _] nil))"))))
+       (testing "an unknown method is refused"
+         (is (thrown-with-msg? Exception #"Method nope not found on protocol"
+                               (ev "(defrecord Bad [] host/HostShape (nope [_] 1))"))))
+       (testing "host side: the host protocol on sci instances"
+         (let [sq (ev "(->Sq 3)")
+               rect (ev "(->Rect 2 5)")
+               plain (ev "(->Plain 1)")
+               r (ev "(reify host/HostShape (host-area [_] :r) (host-scaled [_ k] k))")]
+           (is (= 9 (host-area sq)))
+           (is (= 10 (host-area rect)))
+           (is (= 36 (host-area (host-scaled sq 2))) "a sci record comes back from a sci impl")
+           (is (= 1 (host-area plain)) "extend-type after construction is visible to existing instances")
+           (is (= :r (host-area r)))
+           (is (satisfies? HostShape sq))
+           (is (thrown-with-msg? IllegalArgumentException #"No implementation of method: :host-area of protocol: #'sci.protocols-test/HostShape found for class: user.Marked"
+                                 (host-area (ev "(->Marked)")))))))))
+
+#?(:clj
+   (deftest host-protocol-deftype-fn-test
+     (testing "a native entry reaches a :deftype-fn constructor as itself"
+       (let [seen (atom nil)
+             hns (sci/create-ns 'host)
+             ctx (sci/init {:classes {'clojure.lang.ILookup clojure.lang.ILookup}
+                            :namespaces {'host {'HostShape (sci/copy-var* #'HostShape hns)}
+                                         'test.helpers {'my-ctor (fn [m] (reset! seen m) (sci.impl.deftype/->type-impl nil nil nil (:fields m)))}}
+                            :deftype-fn (fn [_] {:constructor-fn 'test.helpers/my-ctor})})]
+         (sci/eval-string* ctx "(deftype Mixed [x] clojure.lang.ILookup (valAt [_ k] x) host/HostShape (host-area [_] x)) (->Mixed 1)")
+         (is (= 1 (count (:protocols @seen))))
+         (is (utils/native-protocol? (first (:protocols @seen))))))))
+
+#?(:clj
+   (deftest host-protocol-copy-paths-test
+     (let [hns (sci/create-ns 'host)]
+       (testing "copy-var"
+         (is (utils/native-protocol? @(sci/copy-var HostShape hns))))
+       (testing "copy-ns"
+         (let [m (sci/copy-ns sci.protocols-test hns)]
+           (is (utils/native-protocol? @(get m 'HostShape)))
+           (is (= 4 (@(get m 'host-area) (->HostSquare 2))) "method vars reach the host fns")))
+       (testing "new-var on the raw map stays raw, as before"
+         (is (not (utils/native-protocol? @(sci/new-var 'HostShape HostShape {:ns hns}))))))))
+
+#?(:clj
+   (deftest host-protocol-copy-untouched-test
+     (testing "copying a protocol nobody implements leaves the host protocol alone"
+       (let [hns (sci/create-ns 'host)]
+         (sci/init {:namespaces {'host {'HostUnused (sci/copy-var* #'HostUnused hns)}}})
+         (is (not (extends? HostUnused sci.impl.records.SciRecord)))))))
