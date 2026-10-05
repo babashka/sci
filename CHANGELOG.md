@@ -10,13 +10,13 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.15.39
 
 - Fix [babashka#1874](https://github.com/babashka/babashka/issues/1874): `defmethod`, `prefer-method`, `remove-method` and `get-method` with a sci interface such as `clojure.lang.IDeref` dispatch on the class
 - Fix interop with a `false` argument: `(Boolean. false)` picked the `String` overload
-- Caches resolved JVM instance methods per call site for performance
+- Cache resolved JVM instance methods per call site for performance
 - Fix [babashka#2030](https://github.com/babashka/babashka/issues/2030): `aset` on a primitive array was reflective and 170x slower than `aset-double`
-- Bump edamame to `1.6.43`
+- Bump edamame to `1.6.44`
 - Fix [#1094](https://github.com/babashka/sci/issues/1094): a call to a multi-arity fn created a new fn for the called arity on every call, 25x slower than a single-arity call in CLJS
 - Calling a multi-arity fn with fewer args than its variadic arity takes throws `Cannot call f with n arguments`
 - CLJS: creating a closure inside a jitted fn is 4x to 9x faster, and creating a multi-arity fn compiles instead of escaping to the interpreter
