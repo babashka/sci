@@ -108,6 +108,26 @@
   (is (= 1 (eval* '(let [{:keys! [a & 'b "c"]} {:a 1 (quote b) 2 "c" 3}] a))))
   (is (throws? '(let [{:keys! [a & 'b "c"]} {:a 1 (quote b) 2}] a))))
 
+(defn unresolved? [form sym]
+  (try (eval* form)
+       false
+       (catch #?(:cljd cljd.core/ExceptionInfo
+                 :clj Exception
+                 :cljs js/Error) e
+         (= (str "Unable to resolve symbol: " sym) (ex-message e)))))
+
+(deftest unbound-after-amp-test
+  (testing "a key after & binds no local"
+    (is (unresolved? '(let [{:keys! [a & :b]} {:a 1 :b 2}] b) 'b))
+    (is (unresolved? '(let [{a :a {aa :a :keys [b c & :e]} :b} {:a 1 :b {:a 2 :e 3}}] e) 'e))
+    (is (unresolved? '(let [{:keys! [foo/a & :foo/c]} {:foo/a 1 :foo/c 3}] c) 'c))
+    (is (unresolved? '(let [{:foo/keys! [foo/aa & :foo/cc]} #:foo{:aa 1 :cc 3}] cc) 'cc))
+    (is (unresolved? '(let [{:syms! [a & 'b]} '{a 1 b 2}] b) 'b))
+    (is (unresolved? '(let [{:strs! [a & "b"]} {"a" 1 "b" 2}] b) 'b))))
+
+(deftest selector-arglists-test
+  (is (= '([m]) (eval* '(:arglists (meta (var selector)))))))
+
 (deftest select-test
   (let [m {:a 1 :b 2 :c 3 :d 4
            'sa 10 'sb 20 'sc 30 'sd 40
