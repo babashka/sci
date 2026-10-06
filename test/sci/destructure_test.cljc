@@ -108,6 +108,29 @@
   (is (= 1 (eval* '(let [{:keys! [a & 'b "c"]} {:a 1 (quote b) 2 "c" 3}] a))))
   (is (throws? '(let [{:keys! [a & 'b "c"]} {:a 1 (quote b) 2}] a))))
 
+(defn unresolved? [form sym]
+  (try (eval* form)
+       false
+       (catch #?(:cljd cljd.core/ExceptionInfo
+                 :clj Exception
+                 :cljs js/Error) e
+         (= (str "Unable to resolve symbol: " sym) (ex-message e)))))
+
+(deftest unbound-after-amp-test
+  (testing "a key after & binds no local"
+    (is (unresolved? '(let [{:keys! [a & :b]} {:a 1 :b 2}] b) 'b))
+    (is (unresolved? '(let [{a :a {aa :a :keys [b c & :e]} :b} {:a 1 :b {:a 2 :e 3}}] e) 'e))
+    (is (unresolved? '(let [{:keys! [foo/a & :foo/c]} {:foo/a 1 :foo/c 3}] c) 'c))
+    (is (unresolved? '(let [{:foo/keys! [foo/aa & :foo/cc]} #:foo{:aa 1 :cc 3}] cc) 'cc))
+    (is (unresolved? '(let [{:syms! [a & 'b]} '{a 1 b 2}] b) 'b))
+    (is (unresolved? '(let [{:strs! [a & "b"]} {"a" 1 "b" 2}] b) 'b))))
+
+(deftest selector-arglists-test
+  (is (= '([m]) (eval* '(:arglists (meta (var selector)))))))
+
+(deftest merge-arglists-test
+  (is (= '([] [x] [x y] [x y & maps]) (eval* '(:arglists (meta (var merge)))))))
+
 (deftest select-test
   (let [m {:a 1 :b 2 :c 3 :d 4
            'sa 10 'sb 20 'sc 30 'sd 40
@@ -158,15 +181,18 @@
     (is (= [{:a 1} {:a 1 :b 2}]
            (eval* '(let [{:keys [a] :select s :all m} {:a 1 :b 2}] [s m]))))))
 
-(deftest defaults-test
-  (testing ":defaults binds a map of key to default value"
-    (is (= {} (eval* '(let [{:defaults d :or {}} {}] d))))
-    (is (= {:a 1} (eval* '(let [{:keys [a] :defaults d :or {:a 1}} {}] d))))
-    (is (= {:a 1} (eval* '(let [{:keys [a] :defaults d :or {a 1}} {}] d)))))
-  (testing ":defaults without :or is an error"
-    (is (throws? '(let [{:defaults d} {}] d))))
-  (testing "the same key can't have both a binding and a key default"
-    (is (throws? '(let [{:keys [a] :defaults d :or {:a 1 a 1}} {}] d)))))
+(deftest excess-test
+  (testing "a nested map without excess is left out"
+    (is (= {:c 3}
+           (eval* '(let [{:keys [a] {aa :aa} :n :excess ex}
+                         {:a 1 :c 3 :n {:aa 10}}]
+                     ex))))))
+
+(deftest missing-test
+  (testing "a missing required key binds nil"
+    (is (= [1 nil] (eval* '(let [{:keys! [a c] :missing m} {:a 1}] [a c])))))
+  (testing "a present required key with a nil value is not missing"
+    (is (nil? (eval* '(let [{:keys! [a] :missing m} {:a nil}] m))))))
 
 (deftest or-by-key-test
   (testing ":or accepts key -> val in addition to binding -> val"
@@ -175,13 +201,12 @@
     (is (= [1 42] (eval* '(let [{:strs [a b] :or {"b" 42}} {"a" 1}] [a b]))))))
 
 (deftest or-strictness-test
-  (testing "with :select, :all or :defaults every :or entry must be a bound key"
+  (testing "with :select or :all every :or entry must be a bound key"
     (is (throws? '(let [{:keys [a] :or {z 42} :select s} {:a 1}] s)))
     (is (throws? '(let [{:keys [a & :b] :or {b 42} :select s} {:a 1}] s)))
     (is (throws? '(let [{:keys [a] :or {:z 42} :all m} {:a 1}] m)))
-    (is (throws? '(let [{:defaults d :or {:a 1}} {}] d)))
     (is (throws? '(let [{:keys [a] :or {:a 1 :z 2} :select s} {:a 1}] s))))
-  (testing "without the new directives :or is unchecked"
+  (testing "without :select or :all :or is unchecked"
     (is (= 1 (eval* '(let [{:keys [a] :or {z 42}} {:a 1}] a))))))
 
 (deftest required-key-default-test
@@ -197,11 +222,11 @@
                         :or {message (str "Does not conform to " pred)}}
                        {:pred :int}]
                    message))))
-  (testing ":defaults, :select and :all still evaluate a default once"
-    (is (= [42 {:a 42} 1]
+  (testing ":select and :all evaluate a default once"
+    (is (= [42 {:a 42} {:a 42} 1]
            (eval* '(let [n (atom 0) f (fn [] (swap! n inc) 42)
-                         {:keys [a] :or {a (f)} :defaults d} {}]
-                     [a d @n]))))))
+                         {:keys [a] :or {a (f)} :select s :all m} {}]
+                     [a s m @n]))))))
 
 (deftest binding-contexts-test
   (testing "fn params"
@@ -217,3 +242,16 @@
     (is (= [{:a 1}] (eval* '(vec (for [{:keys [a] :select s} [{:a 1 :b 2}]] s))))))
   (testing "loop"
     (is (= {:a 1 :b 2} (eval* '(loop [{:keys [a] :all m} {:a 1 :b 2}] m))))))
+
+(deftest merge-nil-argument-test
+  (testing "merge with one nil argument returns the other argument"
+    (is (eval* '(let [m (sorted-map :b 1 :a 2)] (identical? m (merge nil m)))))
+    (is (eval* '(let [m {:a 1}] (identical? m (merge m nil)))))
+    (is (= {:m 1} (eval* '(meta (merge nil (with-meta {:a 1} {:m 1}))))))))
+
+(deftest all-select-keep-input-test
+  (testing ":all without :or returns the input map"
+    (is (eval* '(let [in (sorted-map :b 1 :a 2) {:keys [a] :all m} in] (identical? in m))))
+    (is (= {:m 1} (eval* '(let [{:keys [a] :all m} (with-meta {:a 1} {:m 1})] (meta m))))))
+  (testing ":select keeps the metadata of the input map"
+    (is (= {:m 1} (eval* '(let [{:keys [a] :select s} (with-meta {:a 1 :b 2} {:m 1})] (meta s)))))))

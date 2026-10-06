@@ -367,7 +367,10 @@ bar/bar"}
                 alength
                 #?(:clj var-get)
                 #?(:clj var-set)
-                compare-and-set!]
+                compare-and-set!
+                clojure.core/req!
+                clojure.core/some-vals
+                clojure.core/selector]
             :when v]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v)))
   (testing "All documented public vars in Clojure should also have a docstring if present in SCI")

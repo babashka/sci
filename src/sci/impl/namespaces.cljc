@@ -13,7 +13,8 @@
                             #?(:cljs alter-meta!)
                             memfn
                             time
-                            exists? js-in])
+                            exists? js-in
+                            req! some-vals selector merge])
   (:require
    #?@(:cljd [] :clj [[borkdude.graal.locking]])
    #?(:cljd [cljd.edn :as edn]
@@ -59,6 +60,16 @@
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
 
 (def clojure-core-ns sci.impl.utils/clojure-core-ns)
+
+(defn merge
+  "Returns a map that consists of the rest of the maps conj-ed onto
+  the first.  If a key occurs in more than one map, the mapping from
+  the latter (left-to-right) will be the mapping in the result."
+  ([] nil)
+  ([x] x)
+  ([x y] (if (and x y) (into x y) (or x y)))
+  ([x y & maps]
+   (reduce merge (merge x y) maps)))
 
 #?(:cljd nil
    :clj (defn -locking-impl [lockee lock-fn]
@@ -292,7 +303,8 @@
            #?(:clj (.getCause ^Throwable ex)
               :cljs (.-cause ex)))))))
 
-(def assert-var (sci.impl.utils/dynamic-var '*assert* true {:ns clojure-core-ns}))
+(def assert-var (sci.impl.utils/dynamic-var '*assert* true {:ns clojure-core-ns
+                                                       :doc "When set to logical false, 'assert' will omit assertion checks in\n  compiled code. Defaults to true."}))
 
 (defn assert*
   ([_&form _ x]
@@ -966,24 +978,6 @@
 
 ;;;; Clojure 1.11.0 kwargs
 
-#?(:clj (defmacro when-<-clojure-1.11.0 [& body]
-          (let [{:keys [:major :minor]} *clojure-version*]
-            (when-not (or (> major 1)
-                          (and (= 1 major)
-                               (>= minor 11)))
-              `(do ~@body)))))
-
-#?(:clj
-   (when-<-clojure-1.11.0
-       (defn seq-to-map-for-destructuring
-         "Builds a map from a seq as described in
-  https://clojure.org/reference/special_forms#keyword-arguments"
-         {:added "1.11"}
-         [s]
-         (if (next s)
-           (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array s))
-           (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))))
-
 #?(:cljs
    (sci.impl.cljs/when-not-var-exists seq-to-map-for-destructuring
                                       (defn seq-to-map-for-destructuring
@@ -1000,7 +994,7 @@
                                 :clj (Object.)
                                 :cljs (js/Object.)))
 
-(defn req!*
+(defn req!
   "Like arity-2 'get', but throws if key not present."
   [m k]
   (let [v (get m k req-not-found)]
@@ -1011,13 +1005,54 @@
                   (str "Missing required key: " (if (string? k) (pr-str k) k))))
       v)))
 
-(defn some-vals*
+(defn some-vals
   "Returns a map with only the non-nil values of map m. Returns nil if
   m has no non-nil vals."
   [m]
-  (reduce-kv
-   (fn [m k v] (if (some? v) (assoc m k v) m))
-   nil m))
+  (when m
+    (reduce-kv
+     (fn [m k v] (if (some? v) (assoc m k v) m))
+     nil m)))
+
+(defn selector
+  "Builds a selecting-fn from m, a map destructuring form that must
+  include one or more of the :select, :all, :missing, and :excess
+  directives. The return function takes a collection, destructures it
+  per m, and returns a map of the result(s).
+
+  If m has exactly one directive, the result is the value that
+  directive would yield. If m has more than one directive, then it
+  returns a map of directives to values.
+
+  As in destructuring, :missing controls whether missing required keys
+  throw or are collected.
+
+  While a map destructuring form may and sometimes must include
+  bindings, selector doesn't produce bindings, thus ignoring the
+  associated directive names.
+
+  Throws an exception if the argument is not a map."
+  {:arglists '([m])}
+  [_ _ m]
+  (when (not (map? m))
+    (throw (new #?(:cljd ArgumentError
+                   :clj IllegalArgumentException
+                   :cljs js/Error)
+                "expected a map")))
+  (let [dirs [:select :excess :missing :all]
+        names (zipmap (filter m dirs) (repeatedly gensym))
+        gmap (gensym "map__")]
+    (if (empty? names)
+      (throw (new #?(:cljd ArgumentError
+                     :clj IllegalArgumentException
+                     :cljs js/Error)
+                  "form must contain at least one of :select :excess :missing :all"))
+      (list 'clojure.core/fn (gensym "selector")
+            [gmap]
+            (list 'clojure.core/let [(merge m names) gmap]
+                  (if (= 1 (count names))
+                    (-> names first val)
+                    (list 'clojure.core/some-vals names)))))))
 
 #?(:clj (def clojure-version-var
           (sci.impl.utils/dynamic-var
@@ -1769,7 +1804,7 @@
      'meta (copy-core-var meta)
      'memfn (copy-var memfn clojure-core-ns {:macro true})
      'memoize (copy-core-var memoize)
-     'merge (copy-core-var merge)
+     'merge (copy-var merge clojure-core-ns)
      'merge-with (copy-core-var merge-with)
      'min (copy-core-var min)
      'min-key (copy-core-var min-key)
@@ -1857,7 +1892,7 @@
      'reduce-kv (copy-core-var reduce-kv)
      'reduced (copy-core-var reduced)
      'reduced? (copy-core-var reduced?)
-     'req! (copy-var req!* clojure-core-ns {:name 'req!})
+     'req! (copy-var req! clojure-core-ns)
      'reset! #?(:cljs (copy-core-var reset!)
                 :default (copy-var core-protocols/reset!* clojure-core-ns {:name 'reset!}))
      'reset-thread-binding-frame-impl (new-var 'reset-thread-binding-frame-impl sci.impl.vars/reset-thread-binding-frame)
@@ -1875,11 +1910,12 @@
      'set? (copy-core-var set?)
      'sequential? (copy-core-var sequential?)
      'select-keys (copy-core-var select-keys)
+     'selector (macrofy 'selector selector)
      #?@(:clj ['short-array (copy-core-var short-array)])
      'simple-keyword? (copy-core-var simple-keyword?)
      'simple-symbol? (copy-core-var simple-symbol?)
      'some? (copy-core-var some?)
-     'some-vals (copy-var some-vals* clojure-core-ns {:name 'some-vals})
+     'some-vals (copy-var some-vals clojure-core-ns)
      'some-> (macrofy 'some-> some->*)
      'some->> (macrofy 'some->> some->>*)
      'string? (copy-core-var string?)

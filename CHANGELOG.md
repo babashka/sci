@@ -10,6 +10,12 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
+## Unreleased
+
+- Clojure 1.13 map destructuring as of clojure/clojure 98d735fa: `:excess` and `:missing` directives, `:defaults` removed. Adds the `selector` macro to `clojure.core`.
+- Minimum Clojure version is `1.11.1`
+- `merge` returns the other argument unchanged if one argument is nil (Clojure 1.13)
+
 ## 0.15.39
 
 - Fix [babashka#1874](https://github.com/babashka/babashka/issues/1874): `defmethod`, `prefer-method`, `remove-method` and `get-method` with a sci interface such as `clojure.lang.IDeref` dispatch on the class
