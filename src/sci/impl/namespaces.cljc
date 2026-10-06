@@ -292,7 +292,8 @@
            #?(:clj (.getCause ^Throwable ex)
               :cljs (.-cause ex)))))))
 
-(def assert-var (sci.impl.utils/dynamic-var '*assert* true {:ns clojure-core-ns}))
+(def assert-var (sci.impl.utils/dynamic-var '*assert* true {:ns clojure-core-ns
+                                                       :doc "When set to logical false, 'assert' will omit assertion checks in\n  compiled code. Defaults to true."}))
 
 (defn assert*
   ([_&form _ x]
@@ -965,24 +966,6 @@
          (cljs.core/type x))))
 
 ;;;; Clojure 1.11.0 kwargs
-
-#?(:clj (defmacro when-<-clojure-1.11.0 [& body]
-          (let [{:keys [:major :minor]} *clojure-version*]
-            (when-not (or (> major 1)
-                          (and (= 1 major)
-                               (>= minor 11)))
-              `(do ~@body)))))
-
-#?(:clj
-   (when-<-clojure-1.11.0
-       (defn seq-to-map-for-destructuring
-         "Builds a map from a seq as described in
-  https://clojure.org/reference/special_forms#keyword-arguments"
-         {:added "1.11"}
-         [s]
-         (if (next s)
-           (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array s))
-           (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))))
 
 #?(:cljs
    (sci.impl.cljs/when-not-var-exists seq-to-map-for-destructuring

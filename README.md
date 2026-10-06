@@ -683,8 +683,7 @@ For general information about Clojure and GraalVM, check out
 
 ### Clojure version
 
-To build native images with GraalVM it is recommended to use Clojure `1.10.3` or
-later.
+SCI requires Clojure `1.11.1` or later.
 
 <!-- ## Use from JavaScript -->
 

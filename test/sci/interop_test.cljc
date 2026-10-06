@@ -821,9 +821,9 @@
          (try
            (sci/eval-string* ctx "(defn f [] PublicFields/staticFoo)")
            (is (= "static field" (sci/eval-string* ctx "(f)")))
-           (set! PublicFields/staticFoo "mutated")
+           (.set (.getField PublicFields "staticFoo") nil "mutated")
            (is (= "mutated" (sci/eval-string* ctx "(f)")))
-           (finally (set! PublicFields/staticFoo orig)))))
+           (finally (.set (.getField PublicFields "staticFoo") nil orig)))))
      (testing "instance field reads stay live after host mutation"
        (let [ctx (sci/init {:classes {'PublicFields PublicFields}})
              o (PublicFields.)

@@ -25,4 +25,4 @@ Port the `destmap*`, `destvec*`, `some-vals`, `req!` and `selector` hunks, then 
 bb script/sync_clojure_destructure_tests.clj ~/dev/clojure origin/master
 ```
 
-The script writes `test/sci/clojure_destructure_test.cljc`. That file runs each upstream deftest body in sci on JVM, CLJS and ClojureDart. `trailing-map-destructuring` is left out because it needs Clojure 1.11 on the host, and sci's JVM tests run on 1.10.3.
+The script writes `test/sci/clojure_destructure_test.cljc`. That file runs each upstream deftest body in sci on JVM, CLJS and ClojureDart.

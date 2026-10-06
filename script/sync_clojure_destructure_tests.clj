@@ -7,7 +7,7 @@
          '[rewrite-clj.zip :as z])
 
 (def test-names
-  '[singleton-map-in-destructure-context
+  '[singleton-map-in-destructure-context trailing-map-destructuring
     keys-bang syms-bang strs-bang missing-directive select-directive
     select-or-defaults all-directive excess selector-test])
 
