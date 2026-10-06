@@ -1,6 +1,7 @@
 (ns sci.test-runner
   (:require
    [cljs.test]
+   [sci.clojure-destructure-test]
    [sci.core-protocols-test]
    [sci.core-test]
    [sci.defrecords-and-deftype-test]

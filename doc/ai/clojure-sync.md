@@ -19,4 +19,10 @@ git log --oneline 98d735fa..origin/master -- src/clj/clojure/core.clj
 git -c diff.external= diff --no-ext-diff 98d735fa origin/master -- src/clj/clojure/core.clj
 ```
 
-Port the `destmap*`, `destvec*`, `some-vals`, `req!` and `selector` hunks, run upstream's destructuring deftests from `test/clojure/test_clojure/data_structures.clj` against bb with this sci, then update the commit above.
+Port the `destmap*`, `destvec*`, `some-vals`, `req!` and `selector` hunks, then copy upstream's destructuring deftests and update the commit above:
+
+```bash
+bb script/sync_clojure_destructure_tests.clj ~/dev/clojure origin/master
+```
+
+The script writes `test/sci/clojure_destructure_test.cljc`. That file runs each upstream deftest body in sci on JVM, CLJS and ClojureDart. `trailing-map-destructuring` is left out because it needs Clojure 1.11 on the host, and sci's JVM tests run on 1.10.3.
