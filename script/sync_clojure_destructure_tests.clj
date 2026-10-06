@@ -25,6 +25,12 @@
                 acc)]
       (if-let [n (z/right zloc)] (recur n acc) acc))))
 
+(defn license-header [src]
+  (->> (str/split-lines src)
+       (take-while #(or (str/starts-with? % ";") (str/blank? %)))
+       (str/join "\n")
+       str/trim))
+
 (defn indent [s]
   (str/join "\n" (map #(if (str/blank? %) % (str "    " %)) (str/split-lines s))))
 
@@ -34,14 +40,17 @@
             (println "Usage: bb script/sync_clojure_destructure_tests.clj <clojure-checkout> <sha>")
             (System/exit 1)))
       sha (str/trim (:out (p/sh {:dir dir} "git" "rev-parse" sha)))
-      tests (deftests (upstream-source dir sha))
+      src (upstream-source dir sha)
+      tests (deftests src)
       missing (remove tests test-names)]
   (when (seq missing)
     (binding [*out* *err*]
       (println "Not found upstream:" (str/join " " missing))
       (System/exit 1)))
   (spit out
-        (str ";; Destructuring and merge tests from clojure/clojure data_structures.clj at " sha ", run in sci.
+        (str (license-header src) "
+
+;; Destructuring and merge tests from clojure/clojure data_structures.clj at " sha ", run in sci.
 ;; Regenerate with: bb script/sync_clojure_destructure_tests.clj <clojure-checkout> <sha>
 
 (ns sci.clojure-destructure-test
