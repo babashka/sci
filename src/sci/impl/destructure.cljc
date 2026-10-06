@@ -19,12 +19,6 @@
 (def ^:private merge-sym 'clojure.core/merge)
 (def ^:private select-keys-sym 'clojure.core/select-keys)
 (def ^:private when-let-sym 'clojure.core/when-let)
-(def ^:private when-not-sym 'clojure.core/when-not)
-(def ^:private identical?-sym 'clojure.core/identical?)
-(def ^:private assoc-sym 'clojure.core/assoc)
-(def ^:private dissoc-sym 'clojure.core/dissoc)
-(def ^:private apply-sym 'clojure.core/apply)
-(def ^:private not-empty-sym 'clojure.core/not-empty)
 (def ^:private new-object-form #?(:cljs '(clojure.core/js-obj) :cljd '(clojure.core/volatile! nil) :default '(new Object)))
 
 (defn- destvec*
@@ -132,9 +126,9 @@
                     (if (and req? missing)
                       (conj ret
                             gtemp bv
-                            gnotfound? (list identical?-sym gtemp gnotfound)
-                            missing (list 'if gnotfound? (list assoc-sym missing bk nil) missing)
-                            local (list when-not-sym gnotfound? gtemp))
+                            gnotfound? `(identical? ~gtemp ~gnotfound)
+                            missing `(if ~gnotfound? (assoc ~missing ~bk nil) ~missing)
+                            local `(when-not ~gnotfound? ~gtemp))
                       (-> ret (conj local bv)))
                     (pb ret bb bv))))
         retsel
@@ -214,9 +208,7 @@
               ret)
         ret (if excess
               (conj ret excess
-                    (list merge-sym
-                          (list not-empty-sym (list apply-sym dissoc-sym gmap sel))
-                          (list some-vals-sym (:subexcess retsel))))
+                    `(~merge-sym (not-empty (apply dissoc ~gmap ~sel)) (~some-vals-sym ~(:subexcess retsel))))
               ret)
         ret (if missing
               (conj ret missing
