@@ -89,3 +89,22 @@ foo-ns
          (is (str/includes? (str/trim (str sw)) (str/trim "
 ArithmeticException Divide by zero
 \tclojure.lang.Numbers.divide")))))))
+
+(deftest repl-pst-sci-error-test
+  #?(:clj
+     (when-not tu/native?
+       (t/testing "pst prints the original exception with SCI stack frames"
+         (let [sw (java.io.StringWriter.)]
+           (sci/binding [sci/err sw]
+             (eval* "(defn inner [] (/ 1 0)) (defn outer [] (inner))
+                     (try (outer) (catch ^:sci/error Exception e (clojure.repl/pst e 5)))"))
+           (is (str/includes? (str sw) "ArithmeticException Divide by zero"))
+           (is (str/includes? (str sw) "user/inner"))
+           (is (str/includes? (str sw) "user/outer"))
+           (is (not (str/includes? (str sw) "sci.impl")))))
+       (t/testing "(pst depth) prints the SCI stack frames of *e"
+         (let [sw (java.io.StringWriter.)]
+           (sci/binding [sci/err sw]
+             (eval* "(defn inner [] (/ 1 0))
+                     (try (inner) (catch ^:sci/error Exception e (binding [*e e] (clojure.repl/pst 5))))"))
+           (is (str/includes? (str sw) "user/inner")))))))

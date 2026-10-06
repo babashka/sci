@@ -569,7 +569,7 @@
       ;; node. JS finally-throw masking matches eval-try-plain (host
       ;; semantics); interrupt-fn ctxs never get this ast.
       :try (let [[_ body catches fin sci-error] a
-                 in-try-val (cond sci-error (const! st :sci/error)
+                 in-try-val (cond sci-error (const! st sci-error)
                                   (seq catches) "true"
                                   :else nil)
                  res (tmp! st)
@@ -595,7 +595,7 @@
                (stmt! st write-in-try "(" old-in-try ");"))
              (stmt! st "s=" amb ";")
              (stmt! st res "=" catch-dispatch "(CTX,B," (const! st body) "," (const! st catches) ","
-                            (if sci-error "true" "false") "," err ");")
+                            (if sci-error (const! st sci-error) "false") "," err ");")
              (line! st "}finally{")
              (invalidate-stack! st)
              (when in-try-val
@@ -632,7 +632,7 @@
                 (js-call deref-var (const! st v)))
       ;; closure creation: build the enclosed array from this template's
       ;; own slots (static capture pairs) and hand it to mk, which reuses
-      ;; make-fn — stubs, laziness and self-reference patching included.
+      ;; fn-maker — stubs, laziness and self-reference patching included.
       ;; enclosed-cnt nil = zero captures, mk gets null like
       ;; (constantly nil) would. No own stack: the interpreter's fn node
       ;; has none.
@@ -736,7 +736,7 @@
                   (or (aget state 0)
                       (aset state 0 (if-let [tpl @d]
                                       (tpl ctx enclosed-array)
-                                      (fallback)))))]
+                                      (fallback ctx enclosed-array)))))]
     (case arity
       0 (fn [] (let [i (aget state 0)] (if (nil? i) ((ensure!)) (i))))
       1 (fn [a] (let [i (aget state 0)] (if (nil? i) ((ensure!) a) (i a))))
@@ -751,19 +751,24 @@
       ;; exotic arities: compile eagerly, correct but not lazy
       (ensure!))))
 
-(defn make-fn
-  "The closure for fn-body: a realized template instance, a lazy stub, or
-  the interpreter fallback (varargs/this-as bodies, jit off)."
-  [fn-body ctx enclosed-array fallback]
-  (let [d (:jit-template fn-body)]
-    (cond
-      (nil? d) (fallback)
-      (some? (:vararg-idx fn-body)) (fallback)
-      (some? (:this-as-idx fn-body)) (fallback)
-      (realized? d) (if-let [tpl @d]
-                      (tpl ctx enclosed-array)
-                      (fallback))
-      :else (make-stub d ctx enclosed-array fallback (:fixed-arity fn-body)))))
+(defn fn-maker
+  "Returns (fn [ctx enclosed-array]) that makes the closure for fn-body: a
+  realized template instance, a lazy stub, or the interpreter fallback
+  (varargs/this-as bodies, jit off). fallback takes ctx and enclosed-array.
+  Reads fn-body once, so closure creation does no map lookups."
+  [fn-body fallback]
+  (let [d (:jit-template fn-body)
+        arity (:fixed-arity fn-body)]
+    (if (or (nil? d)
+            (some? (:vararg-idx fn-body))
+            (some? (:this-as-idx fn-body)))
+      fallback
+      (fn [ctx enclosed-array]
+        (if (realized? d)
+          (if-let [tpl @d]
+            (tpl ctx enclosed-array)
+            (fallback ctx enclosed-array))
+          (make-stub d ctx enclosed-array fallback arity))))))
 
 (defn compile-template
   "Compile a fn body to a template (fn [ctx enclosed-array] -> JS fn),

@@ -4,9 +4,16 @@ set -eo pipefail
 
 if [ ! -f pubspec.yaml ]; then
   echo 'Initializing ClojureDart project'
-  clojure -M:cljd init
-  # drop the generated sample test, only sci tests should run
-  rm -f test/sci_test.dart
+  # init runs dart create --force, which overwrites these tracked files
+  kept=(README.md CHANGELOG.md .gitignore)
+  saved=$(mktemp -d)
+  cp "${kept[@]}" "$saved"
+  restore() { for f in "${kept[@]}"; do cp "$saved/$f" "$f"; done; rm -rf "$saved"; }
+  clojure -M:cljd init || { restore; exit 1; }
+  restore
+  # drop the generated sample test, only sci tests should run. dart create
+  # names it after the checkout directory.
+  rm -f "test/$(basename "$PWD" | tr '[:upper:]-' '[:lower:]_')_test.dart"
 fi
 
 # Test namespaces that compile and pass on ClojureDart. Extend this list as

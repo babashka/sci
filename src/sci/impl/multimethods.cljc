@@ -173,12 +173,28 @@
      :cljs (new cljs.core/MultiFn name dispatch-fn default hierarchy
                 method-table prefer-table method-cache cached-hierarchy)))
 
+#?(:cljd nil
+   :clj
+   (do
+     ;; interfaces like clojure.lang.IDeref are protocol maps in sci, the
+     ;; multimethod dispatches on the class
+     (defn unwrap-class [dispatch-val]
+       (if (and (map? dispatch-val) (class? (:class dispatch-val)))
+         (:class dispatch-val)
+         dispatch-val))
+     (defn get-method-impl [multifn dispatch-val]
+       (get-method multifn (unwrap-class dispatch-val)))
+     (defn prefer-method-impl [multifn dispatch-val-x dispatch-val-y]
+       (prefer-method multifn (unwrap-class dispatch-val-x) (unwrap-class dispatch-val-y)))
+     (defn remove-method-impl [multifn dispatch-val]
+       (remove-method multifn (unwrap-class dispatch-val)))))
+
 (defn multi-fn-add-method-impl
   [multifn dispatch-val f]
   #?(:cljd (do (swap! (.-method-table ^SciMultiFn multifn) assoc
                       (normalize-dispatch-val dispatch-val) f)
                multifn)
-     :clj (.addMethod ^clojure.lang.MultiFn multifn dispatch-val f)
+     :clj (.addMethod ^clojure.lang.MultiFn multifn (unwrap-class dispatch-val) f)
      :cljs (-add-method multifn dispatch-val f)))
 
 (defn defmethod

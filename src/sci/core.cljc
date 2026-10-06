@@ -402,7 +402,7 @@
 (defn stacktrace
   "Returns list of stacktrace element maps from exception, if available."
   [ex]
-  (some-> ex ex-data :sci.impl/callstack cs/stacktrace))
+  (some-> ex utils/callstack-of cs/stacktrace))
 
 (defn format-stacktrace
   "Returns a list of formatted stack trace elements as strings from stacktrace."

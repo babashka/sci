@@ -84,7 +84,7 @@
         [[_ r]
          (reduce (fn [_ c]
                    (let [clazz (:class c)
-                         e (if (and sci-error
+                         e (if (and (utils/kw-identical? :sci/error sci-error)
                                     (not (:sci-error c)))
                              (ex-cause e)
                              e)]
@@ -116,8 +116,7 @@
   "Evaluates the try body and applies the catch clauses. No `finally`."
   [ctx bindings body catches sci-error]
   (try
-    (binding [utils/*in-try* (or (when sci-error
-                                   :sci/error)
+    (binding [utils/*in-try* (or sci-error
                                  ;; try/finally without catch
                                  (seq catches)
                                  utils/*in-try*)]
@@ -133,8 +132,7 @@
   interrupt-fn feature pay no overhead."
   [ctx bindings body catches finally sci-error]
   (try
-    (binding [utils/*in-try* (or (when sci-error
-                                   :sci/error)
+    (binding [utils/*in-try* (or sci-error
                                  (seq catches)
                                  utils/*in-try*)]
       (types/eval body ctx bindings))

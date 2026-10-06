@@ -63,6 +63,11 @@
                  "((fn [n] (let [add (fn [x] (fn [y] (+ x y n)))] ((add 1) 2))) 10)"
                  "((fn [n] (let [fib (fn fib [i] (if (< i 2) i (+ (fib (- i 1)) (fib (- i 2)))))] (fib n))) 10)"
                  "(let [mk (fn [n] (fn [] n)) fs (mapv mk [1 2 3])] (mapv (fn [f] (f)) fs))"
+                 "((fn [n] (let [f (fn ([] n) ([x] (+ x n)) ([x & more] [x n (vec more)]))] [(f) (f 1) (f 1 2 3)])) 5)"
+                 "((fn [n] (let [f (fn f ([i] (f i 0)) ([i acc] (if (pos? i) (f (dec i) (+ acc i n)) acc)))] (f 3))) 10)"
+                 "(let [mk (fn [n] (fn ([] n) ([x] [n x]))) fs (mapv mk [1 2])] (mapv (fn [f] [(f) (f :a)]) fs))"
+                 "(try ((fn [n] ((fn g ([] n) ([x] x)) 1 2)) 5) (catch :default e (ex-message e)))"
+                 "((fn [n] (let [f (with-meta (fn ([] n) ([x] x)) {:a n})] [(f) (:a (meta f))])) 5)"
                  "((fn [n] ((comp inc (fn [x] (* x n))) 3)) 5)"
                  "(let [counter (fn [] (let [state (atom 0)] (fn [] (swap! state inc)))) c (counter)] [(c) (c)])"
                  "((fn [] (let [o (js-obj)] (set! (.-x o) 41) (inc (.-x o)))))"
@@ -173,6 +178,18 @@
           (is (not (str/includes? js "H.ev")) (str src " escaped: " js))
           ;; escape-free means locals mode, no invocation array
           (is (not (str/includes? js "new Array")) (str src " left locals mode: " js)))))))
+
+(deftest jit-multi-arity-fn-creation-compiles-test
+  (testing "creating a multi-arity fn compiles instead of escaping to the interpreter"
+    (when (do (jit/enable!) (jit/enabled?))
+      (let [src "(fn [n] (let [f (fn ([] n) ([x] (+ x n)))] (f 1)))"]
+        (vreset! jit/last-srcs [])
+        (vreset! jit/collect-srcs? true)
+        (is (= 6 ((sci/eval-string* (sci/init {}) src) 5)))
+        (vreset! jit/collect-srcs? false)
+        (let [js (apply str @jit/last-srcs)]
+          (is (not (str/includes? js "H.ev")) (str src " escaped: " js))
+          (is (not (str/includes? js "var B=new Array")) (str src " left locals mode: " js)))))))
 
 (def ^:private js-opts
   {:unrestricted true :classes {'js js/globalThis :allow :all}})

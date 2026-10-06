@@ -2,7 +2,7 @@
   (:require
    [clojure.edn :as edn]
    [clojure.string :as str]
-   [clojure.test :as test :refer [deftest is]]
+   [clojure.test :as test :refer [deftest is testing]]
    [sci.core :as sci]
    [sci.test-utils :as tu]))
 
@@ -36,6 +36,20 @@
     (is (= "\"hello\"\n" (sci/with-out-str (eval* "(prn \"hello\")"))))
     (is (= "\"hello\"" (sci/with-out-str (eval* "(pr \"hello\")"))))
     (is (= "\n" (sci/with-out-str (eval* "(newline)"))))))
+
+#?(:cljd nil
+   :clj
+   (deftest pr-on-test
+     (when-not tu/native?
+       (testing "clojure.core/pr-on prints to the writer it is given"
+         (let [w (java.io.StringWriter.)]
+           (tu/eval* "(@#'clojure.core/pr-on (range 5) w)" {:namespaces {'user {'w w}}})
+           (is (= "(0 1 2 3 4)" (str w)))))
+       (testing "and under the interpreter's print settings"
+         (let [w (java.io.StringWriter.)]
+           (tu/eval* "(binding [*print-length* 3] (@#'clojure.core/pr-on (range 10) w))"
+                     {:namespaces {'user {'w w}}})
+           (is (= "(0 1 2 ...)" (str w))))))))
 
 (deftest print-length-test
   (when-not tu/native?

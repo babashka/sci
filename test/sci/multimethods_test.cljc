@@ -22,6 +22,31 @@
 (remove-method greeting \"English\")
 (greeting {\"id\" \"1\", \"language\" \"English\"})"))))
 
+#?(:cljd nil
+   :clj
+   (deftest interface-dispatch-value-test
+     (is (= [:deref :deref :default]
+            (eval* "
+(defmulti kind type)
+(defmethod kind clojure.lang.IDeref [_] :deref)
+(defmethod kind :default [_] :default)
+[(kind (atom 1)) (kind (delay 1)) (kind 1)]")))
+     (is (= [true :default]
+            (eval* "
+(defmulti kind type)
+(defmethod kind clojure.lang.IDeref [_] :deref)
+(defmethod kind :default [_] :default)
+(let [found (some? (get-method kind clojure.lang.IDeref))]
+  (remove-method kind clojure.lang.IDeref)
+  [found (kind (atom 1))])")))
+     (is (= :deref
+            (eval* "
+(defmulti kind type)
+(defmethod kind clojure.lang.IDeref [_] :deref)
+(defmethod kind clojure.lang.IAtom [_] :atom)
+(prefer-method kind clojure.lang.IDeref clojure.lang.IAtom)
+(kind (atom 1))")))))
+
 ;; TODO:cljd no hierarchies
 #?(:cljd nil :default
 (deftest prefer-method-test

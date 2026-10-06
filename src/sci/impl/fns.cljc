@@ -170,28 +170,34 @@
                            ret))))))))]
      f)))
 
-(defn lookup-by-arity [arities arity]
-  (or (get arities arity)
-      (:variadic arities)))
-
-(defn fn-arity-map [ctx enclosed-array fn-name macro? fn-bodies]
-  (reduce
-   (fn [arity-map fn-body]
-     (let [f (fun ctx enclosed-array fn-body fn-name macro?
-                  (:fixed-arity fn-body)
-                  (:copy-enclosed->invocation fn-body)
-                  (:body fn-body)
-                  (:invoc-size fn-body)
-                  (utils/current-ns-name)
-                  (:vararg-idx fn-body)
-                  #?(:cljs (:this-as-idx fn-body)))
-           var-arg? (:var-arg-name fn-body)
-           fixed-arity (:fixed-arity fn-body)]
-       (if var-arg?
-         (assoc arity-map :variadic f)
-         (assoc arity-map fixed-arity f))))
-   {}
-   fn-bodies))
+(defn multi-arity-dispatch
+  "Returns the fn for a multi-arity fn*. fixed-fns is an array of the fixed
+  arity fns indexed by arg count, with nil for an arity that does not exist.
+  variadic-fn takes every arg count from variadic-min up."
+  [fixed-fns variadic-fn variadic-min fn-name macro?]
+  (let [fixed-cnt (alength #?(:cljd ^List fixed-fns :default ^objects fixed-fns))
+        lookup (fn [arg-count]
+                 (let [f (when (< arg-count fixed-cnt)
+                           (aget #?(:cljd ^List fixed-fns :default ^objects fixed-fns) arg-count))]
+                   (if (nil? f)
+                     (if (and (not (nil? variadic-fn))
+                              (>= arg-count variadic-min))
+                       variadic-fn
+                       (throw (new #?(:cljd Exception
+                                      :clj Exception
+                                      :cljs js/Error)
+                                   (let [actual-count (if macro? (- arg-count 2)
+                                                          arg-count)]
+                                     (str "Cannot call " fn-name " with " actual-count " arguments")))))
+                     f)))]
+    (fn multi-arity
+      ([] ((lookup 0)))
+      ([a] ((lookup 1) a))
+      ([a b] ((lookup 2) a b))
+      ([a b c] ((lookup 3) a b c))
+      ([a b c d] ((lookup 4) a b c d))
+      ([a b c d & more]
+       (apply (lookup (+ 4 (count more))) a b c d more)))))
 
 ;;;; Macros
 

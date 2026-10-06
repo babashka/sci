@@ -212,6 +212,30 @@
   (is (= "otherwise" (eval* '((fn ([x] "otherwise") ([x & xs] "variadic")) 1))))
   (is (= "variadic" (eval* '((fn ([x] "otherwise") ([x & xs] "variadic")) 1 2))))
   (is (= '(2 3 4) (eval* '(apply (fn [x & xs] xs) 1 2 [3 4]))))
+  (testing "multi-arity dispatch"
+    (is (= [0 1 2 3 4 5 [6 [7 8]]]
+           (eval* '(let [f (fn ([] 0) ([a] a) ([a b] b) ([a b c] c) ([a b c d] d)
+                             ([a b c d e] e) ([a b c d e g & more] [g more]))]
+                     [(f) (f 1) (f 1 2) (f 1 2 3) (f 1 2 3 4) (f 1 2 3 4 5)
+                      (f 1 2 3 4 5 6 7 8)]))))
+    (is (= [[1 nil] [1 [2 3]]]
+           (eval* '(let [f (fn ([] 0) ([a & more] [a more]))]
+                     [(f 1) (apply f [1 2 3])]))))
+    (is (= 6 (eval* '((fn foo ([x] (foo x 0)) ([x acc] (if (pos? x) (foo (dec x) (+ acc x)) acc))) 3))))
+    (is (= [1 2] (eval* '(let [mk (fn [x] (fn ([] x) ([y] [x y])))
+                               f1 (mk 1)
+                               f2 (mk 2)]
+                           [(f1) (f2)]))))
+    (is (= [:a [:a :b]] (eval* "(defmacro foo ([x] x) ([x y] [x y])) [(foo :a) (foo :a :b)]")))
+    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+                          #"Cannot call foo with 3 arguments"
+                          (eval* '((fn foo ([x] x) ([x y] y)) 1 2 3))))
+    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+                          #"Cannot call foo with 1 arguments"
+                          (eval* '((fn foo ([] 0) ([x y & more] y)) 1))))
+    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+                          #"Cannot call foo with 3 arguments"
+                          (eval* "(defmacro foo ([x] x) ([x y] y)) (foo 1 2 3)"))))
   (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
                         #"Can't have fixed arity function with more params than variadic function"
                         (eval* "   (fn ([& args]) ([v ]))")))

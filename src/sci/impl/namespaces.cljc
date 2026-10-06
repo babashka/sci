@@ -29,6 +29,7 @@
    [clojure.string :as str]
    [clojure.walk :as walk]
    [sci.ctx-store :as store]
+   [sci.impl.callstack]
    [sci.impl.cljs]
    [sci.impl.core-protocols :as core-protocols]
    [sci.impl.deftype :as deftype]
@@ -1365,6 +1366,7 @@
      'newline (copy-var sci.impl.io/newline clojure-core-ns {:name 'newline})
      'flush (copy-core-var sci.impl.io/flush)
      'pr (copy-var sci.impl.io/pr clojure-core-ns {:name 'pr})
+     #?@(:clj ['pr-on (new-var 'pr-on sci.impl.io/core-pr-on clojure-core-ns {:private true})])
      'prn (copy-core-var sci.impl.io/prn)
      'print (copy-core-var sci.impl.io/print)
      'println (copy-core-var sci.impl.io/println)
@@ -1407,15 +1409,19 @@
      'defmulti (macrofy 'defmulti sci.impl.multimethods/defmulti clojure-core-ns)
      'defmethod (macrofy 'defmethod sci.impl.multimethods/defmethod)
      #?@(:cljd ['get-method (new-var 'get-method sci.impl.multimethods/get-method-impl clojure-core-ns)]
+         :clj ['get-method (copy-var sci.impl.multimethods/get-method-impl clojure-core-ns {:copy-meta-from 'clojure.core/get-method})]
          :default ['get-method (copy-core-var get-method)])
      #?@(:cljd ['methods (new-var 'methods sci.impl.multimethods/methods-impl clojure-core-ns)]
          :default ['methods (copy-core-var methods)])
      'multi-fn-add-method-impl (copy-var sci.impl.multimethods/multi-fn-add-method-impl clojure-core-ns)
      'multi-fn?-impl (copy-var sci.impl.multimethods/multi-fn?-impl clojure-core-ns)
      'multi-fn-impl (copy-var sci.impl.multimethods/multi-fn-impl clojure-core-ns)
-     #?@(:cljd [] :default ['prefer-method (copy-core-var prefer-method)])
+     #?@(:cljd []
+         :clj ['prefer-method (copy-var sci.impl.multimethods/prefer-method-impl clojure-core-ns {:copy-meta-from 'clojure.core/prefer-method})]
+         :default ['prefer-method (copy-core-var prefer-method)])
      #?@(:cljd [] :default ['prefers (copy-core-var prefers)])
      #?@(:cljd ['remove-method (new-var 'remove-method sci.impl.multimethods/remove-method-impl clojure-core-ns)]
+         :clj ['remove-method (copy-var sci.impl.multimethods/remove-method-impl clojure-core-ns {:copy-meta-from 'clojure.core/remove-method})]
          :default ['remove-method (copy-core-var remove-method)])
      #?@(:cljd [] :default ['remove-all-methods (copy-core-var remove-all-methods)])
      ;; end multimethods
@@ -2240,24 +2246,37 @@
       ([e-or-depth]
        (if (instance? Throwable e-or-depth)
          (pst e-or-depth 12)
-         (pst (root-cause @*e) e-or-depth)))
+         (let [e @*e]
+           (pst (if (utils/callstack-of e) e (root-cause e)) e-or-depth))))
       ([^Throwable e depth]
        (sci.impl.vars/with-bindings {sci.impl.io/out @sci.impl.io/err}
-         (sci.impl.io/println (str (-> e class .getSimpleName) " "
-                                   (.getMessage e)
-                                   (when-let [info (ex-data e)] (str " " (pr-str info)))))
-         (let [st (.getStackTrace e)
-               cause (.getCause e)]
-           (doseq [el (take depth
-                            (remove #(#{"clojure.lang.RestFn" "clojure.lang.AFn"}
-                                      (.getClassName ^StackTraceElement %))
-                                    st))]
-             (sci.impl.io/println (str \tab (stack-element-str el))))
-           (when cause
-             (sci.impl.io/println "Caused by:")
-             (pst cause (min depth
-                             (+ 2 (- (count (.getStackTrace cause))
-                                     (count st)))))))))))
+         (if-let [callstack (utils/callstack-of e)]
+           (let [^Throwable cause (if (:sci.impl/callstack (ex-data e)) (or (.getCause e) e) e)
+                 info (ex-data cause)]
+             (sci.impl.io/println (str (-> cause class .getSimpleName) " " (.getMessage cause)
+                                       (when (and info (not (:sci.impl/callstack info)))
+                                         (str " " (pr-str info)))))
+             (doseq [line (take depth (sci.impl.callstack/format-stacktrace
+                                       (sci.impl.callstack/stacktrace callstack)))]
+               (sci.impl.io/println (str \tab line)))
+             (when-let [c (.getCause cause)]
+               (sci.impl.io/println "Caused by:")
+               (pst c depth)))
+           (do (sci.impl.io/println (str (-> e class .getSimpleName) " "
+                                         (.getMessage e)
+                                         (when-let [info (ex-data e)] (str " " (pr-str info)))))
+               (let [st (.getStackTrace e)
+                     cause (.getCause e)]
+                 (doseq [el (take depth
+                                  (remove #(#{"clojure.lang.RestFn" "clojure.lang.AFn"}
+                                            (.getClassName ^StackTraceElement %))
+                                          st))]
+                   (sci.impl.io/println (str \tab (stack-element-str el))))
+                 (when cause
+                   (sci.impl.io/println "Caused by:")
+                   (pst cause (min depth
+                                   (+ 2 (- (count (.getStackTrace cause))
+                                           (count st)))))))))))))
 
  (def clojure-repl-namespace (sci.lang/->Namespace 'clojure.repl nil))
 
