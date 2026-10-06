@@ -13,7 +13,6 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## Unreleased
 
 - Clojure 1.13 map destructuring as of clojure/clojure 98d735fa: `:excess` and `:missing` directives, `:defaults` removed. Adds the `selector` macro to `clojure.core`.
-- ClojureDart: `(new Object)` returns a new object on every call
 - Minimum Clojure version is `1.11.1`
 - `merge` returns the other argument unchanged if one argument is nil (Clojure 1.13)
 

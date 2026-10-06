@@ -25,7 +25,7 @@
 (def ^:private dissoc-sym 'clojure.core/dissoc)
 (def ^:private apply-sym 'clojure.core/apply)
 (def ^:private not-empty-sym 'clojure.core/not-empty)
-(def ^:private new-object-form #?(:cljs '(clojure.core/js-obj) :default '(new Object)))
+(def ^:private new-object-form #?(:cljs '(clojure.core/js-obj) :cljd '(clojure.core/volatile! nil) :default '(new Object)))
 
 (defn- destvec*
   [pb bvec b val loc]

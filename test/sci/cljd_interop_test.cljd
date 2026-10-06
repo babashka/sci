@@ -121,7 +121,3 @@
   (testing "a bare . arg is malformed, not a named arg"
     (is (thrown? cljd.core/ExceptionInfo
                  (tu/eval* "(defn f [& {:as o}] o) (f . 1)" {})))))
-
-(deftest object-constructor-test
-  (testing "(new Object) returns a distinct object per call"
-    (is (false? (sci/eval-string "(identical? (new Object) (Object.))")))))
