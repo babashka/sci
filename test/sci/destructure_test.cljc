@@ -128,6 +128,9 @@
 (deftest selector-arglists-test
   (is (= '([m]) (eval* '(:arglists (meta (var selector)))))))
 
+(deftest merge-arglists-test
+  (is (= '([] [x] [x y] [x y & maps]) (eval* '(:arglists (meta (var merge)))))))
+
 (deftest select-test
   (let [m {:a 1 :b 2 :c 3 :d 4
            'sa 10 'sb 20 'sc 30 'sd 40
