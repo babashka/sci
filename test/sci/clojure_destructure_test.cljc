@@ -1,4 +1,4 @@
-;; Destructuring tests from clojure/clojure data_structures.clj at 98d735fab02f337cee654cb0629bddc09883a75a, run in sci.
+;; Destructuring and merge tests from clojure/clojure data_structures.clj at 98d735fab02f337cee654cb0629bddc09883a75a, run in sci.
 ;; Regenerate with: bb script/sync_clojure_destructure_tests.clj <clojure-checkout> <sha>
 
 (ns sci.clojure-destructure-test
@@ -11,8 +11,11 @@
   (if (and (seq? form) (= 'thrown? (first form)))
     (list 'try (cons 'do (nnext form))
           (list 'swap! 'failures 'conj (list 'quote form))
-          (list 'catch '" #?(:clj "Exception" :default ":default") " '_ nil))
-    (list 'when-not form (list 'swap! 'failures 'conj (list 'quote form)))))
+          nil
+          (list 'catch '" #?(:clj "Exception" :default ":default") " 'e 'e))
+    (list 'let ['v form]
+          (list 'when-not 'v (list 'swap! 'failures 'conj (list 'quote form)))
+          'v)))
 (defmacro testing [_ & body] (cons 'do body))
 (defmacro are [argv expr & args]
   (cons 'do (map (fn [a] (list 'is (clojure.walk/postwalk-replace (zipmap argv a) expr)))
@@ -627,6 +630,43 @@
                                    :select _})]
             (is (= {::x 10000 :nested {:aa 1 'saa 10}}
                    (exnest_ sample-map)))))))
+
+    (deftest test-merge
+      (testing "`nil` and empty map behavior"
+        (is (nil? (merge)))
+        (is (nil? (merge nil)))
+        (is (nil? (merge nil nil)))
+        (is (nil? (merge nil nil nil)))
+        (is (= {} (merge {})))
+        (is (= {} (merge {} nil)))
+        (is (= {} (merge nil {})))
+        (is (= {} (merge nil {} nil)))
+        (is (= {[2 3] :foo} (merge {[2 3] :foo} nil {})))
+        (is (= {1 11} (merge {1 11} {} nil))))
+      (testing "lattermost mapping wins"
+        (is (= {:a "aaaaa"} (merge {:a "a"} {:a "aaaaa"})))
+        (is (= {:a "a" :b "b"} (merge {:a "aaaa"} {:a "a" :b "b"})))
+        (is (= {:a "a" :b "b"} (merge {:a "aaaa"}
+                                 {:a "a" :b "bbbb"}
+                                 {:a "a" :b "b"})))
+        (is (= {:a nil :b "b" :c "c"} (merge {:a "aaaa"}
+                                        {:a "a" :b "bbbb" :c "c"}
+                                        {:a nil :b "b"})))
+        (is (= {:x 1 :y 10 :z 100} (merge {:x 1 :y 5555}
+                                     {:y 10 :z 100}))))
+      (testing "nested maps are replaced, not 'deep-merged'"
+        (is (= {:ceo {:name "Alice"},
+                :cto {:name "Brenda"}}
+              (merge {:ceo {:salary 1000000}} ; salary values are overwritten
+                {:cto {:salary  500000}}
+                {:ceo {:name "Alice"}}
+                {:cto {:name "Brenda"}}))))
+      (testing "non-map values in position 2 throw"
+        (are [b] (is (thrown? Exception (apply merge {} b)))
+          [1]
+          [1 2]
+          [:foo]
+          ["str"])))
     ])
 
 (deftest clojure-destructure-test

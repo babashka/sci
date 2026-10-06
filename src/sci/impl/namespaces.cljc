@@ -995,6 +995,13 @@
                   (str "Missing required key: " (if (string? k) (pr-str k) k))))
       v)))
 
+(defn merge*
+  ([] nil)
+  ([x] x)
+  ([x y] (if (and x y) (into x y) (or x y)))
+  ([x y & maps]
+   (reduce merge* (merge* x y) maps)))
+
 (defn some-vals
   "Returns a map with only the non-nil values of map m. Returns nil if
   m has no non-nil vals."
@@ -1794,7 +1801,7 @@
      'meta (copy-core-var meta)
      'memfn (copy-var memfn clojure-core-ns {:macro true})
      'memoize (copy-core-var memoize)
-     'merge (copy-core-var merge)
+     'merge (copy-var merge* clojure-core-ns {:name 'merge})
      'merge-with (copy-core-var merge-with)
      'min (copy-core-var min)
      'min-key (copy-core-var min-key)

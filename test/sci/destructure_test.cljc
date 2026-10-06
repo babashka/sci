@@ -313,3 +313,16 @@
     (is (= [{:a 1}] (eval* '(vec (for [{:keys [a] :select s} [{:a 1 :b 2}]] s))))))
   (testing "loop"
     (is (= {:a 1 :b 2} (eval* '(loop [{:keys [a] :all m} {:a 1 :b 2}] m))))))
+
+(deftest merge-nil-argument-test
+  (testing "merge with one nil argument returns the other argument"
+    (is (eval* '(let [m (sorted-map :b 1 :a 2)] (identical? m (merge nil m)))))
+    (is (eval* '(let [m {:a 1}] (identical? m (merge m nil)))))
+    (is (= {:m 1} (eval* '(meta (merge nil (with-meta {:a 1} {:m 1}))))))))
+
+(deftest all-select-keep-input-test
+  (testing ":all without :or returns the input map"
+    (is (eval* '(let [in (sorted-map :b 1 :a 2) {:keys [a] :all m} in] (identical? in m))))
+    (is (= {:m 1} (eval* '(let [{:keys [a] :all m} (with-meta {:a 1} {:m 1})] (meta m))))))
+  (testing ":select keeps the metadata of the input map"
+    (is (= {:m 1} (eval* '(let [{:keys [a] :select s} (with-meta {:a 1 :b 2} {:m 1})] (meta s)))))))

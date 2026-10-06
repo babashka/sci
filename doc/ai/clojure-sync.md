@@ -5,7 +5,7 @@ Last synced clojure/clojure commit: `98d735fab02f337cee654cb0629bddc09883a75a` (
 Ported from `src/clj/clojure/core.clj`:
 
 - `destructure` map and vector parts: `src/sci/impl/destructure.cljc`
-- `req!`, `some-vals`, `selector`: `src/sci/impl/namespaces.cljc`
+- `req!`, `some-vals`, `selector`, `merge`: `src/sci/impl/namespaces.cljc`
 
 Not ported: new core functions unrelated to destructuring (`merge-deep`, `merge-deep-with`, `tap->`, `clojure.walk/transform-keys`) and JVM-only changes (transients, inlined `meta`, `:redef`).
 
@@ -19,7 +19,7 @@ git log --oneline 98d735fa..origin/master -- src/clj/clojure/core.clj
 git -c diff.external= diff --no-ext-diff 98d735fa origin/master -- src/clj/clojure/core.clj
 ```
 
-Port the `destmap*`, `destvec*`, `some-vals`, `req!` and `selector` hunks, then copy upstream's destructuring deftests and update the commit above:
+Port the `destmap*`, `destvec*`, `some-vals`, `req!`, `selector` and `merge` hunks, then copy upstream's destructuring deftests and update the commit above:
 
 ```bash
 bb script/sync_clojure_destructure_tests.clj ~/dev/clojure origin/master

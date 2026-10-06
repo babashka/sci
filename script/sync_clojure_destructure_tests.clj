@@ -9,7 +9,7 @@
 (def test-names
   '[singleton-map-in-destructure-context trailing-map-destructuring
     keys-bang syms-bang strs-bang missing-directive select-directive
-    select-or-defaults all-directive excess selector-test])
+    select-or-defaults all-directive excess selector-test test-merge])
 
 (def out "test/sci/clojure_destructure_test.cljc")
 
@@ -41,7 +41,7 @@
       (println "Not found upstream:" (str/join " " missing))
       (System/exit 1)))
   (spit out
-        (str ";; Destructuring tests from clojure/clojure data_structures.clj at " sha ", run in sci.
+        (str ";; Destructuring and merge tests from clojure/clojure data_structures.clj at " sha ", run in sci.
 ;; Regenerate with: bb script/sync_clojure_destructure_tests.clj <clojure-checkout> <sha>
 
 (ns sci.clojure-destructure-test
@@ -54,8 +54,11 @@
   (if (and (seq? form) (= 'thrown? (first form)))
     (list 'try (cons 'do (nnext form))
           (list 'swap! 'failures 'conj (list 'quote form))
-          (list 'catch '\" #?(:clj \"Exception\" :default \":default\") \" '_ nil))
-    (list 'when-not form (list 'swap! 'failures 'conj (list 'quote form)))))
+          nil
+          (list 'catch '\" #?(:clj \"Exception\" :default \":default\") \" 'e 'e))
+    (list 'let ['v form]
+          (list 'when-not 'v (list 'swap! 'failures 'conj (list 'quote form)))
+          'v)))
 (defmacro testing [_ & body] (cons 'do body))
 (defmacro are [argv expr & args]
   (cons 'do (map (fn [a] (list 'is (clojure.walk/postwalk-replace (zipmap argv a) expr)))
