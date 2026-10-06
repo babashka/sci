@@ -162,9 +162,11 @@
   (testing ":excess binds the input minus every selected key"
     (is (= {:b 2 :c 3}
            (eval* '(let [{:keys [a] :excess ex} {:a 1 :b 2 :c 3}] ex)))))
-  (testing "nil-valued entries are dropped"
-    (is (= {:b 2}
-           (eval* '(let [{:keys [a] :excess ex} {:a 1 :b 2 :z nil}] ex)))))
+  (testing ":excess retains nil values"
+    (is (= {:b 2 :z nil}
+           (eval* '(let [{:keys [a] :excess ex} {:a 1 :b 2 :z nil}] ex))))
+    (is (= {:bb nil}
+           (eval* '(let [{{:keys [aa] :excess ex} :c} {:c {:aa 10 :bb nil}}] ex)))))
   (testing "nested maps contribute their own excess under the parent key"
     (is (= {:c 3 :n {:bb 20}}
            (eval* '(let [{:keys [a] {aa :aa} :n :excess ex}
@@ -179,20 +181,69 @@
     (is (nil? (eval* '(let [{:keys [a] {aa :aa} :n :excess ex}
                             {:a 1 :n {:aa 10}}]
                         ex))))
+    (is (nil? (eval* '(let [{:excess ex} {}] ex))))
     (is (nil? (eval* '(let [{:keys [a] :excess ex} nil] ex)))))
   (testing "keys named after & count as selected"
     (is (= {:c 3}
-           (eval* '(let [{:keys [a & :b] :excess ex} {:a 1 :b 2 :c 3}] ex))))))
+           (eval* '(let [{:keys [a & :b] :excess ex} {:a 1 :b 2 :c 3}] ex)))))
+  (testing ":or defaults stay out of :excess"
+    (is (= [{:b 2} {:a 1 :z 99}]
+           (eval* '(let [{:keys [a z] :or {z 99} :excess ex :select s} {:a 1 :b 2}]
+                     [ex s])))))
+  (testing ":excess applies to :syms, :strs and qualified keys"
+    (is (= '{e 5} (eval* '(let [{:syms [d] :excess ex} '{d 4 e 5}] ex))))
+    (is (= {"h" 7} (eval* '(let [{:strs [g] :excess ex} {"g" 6 "h" 7}] ex))))
+    (is (= {:bar/y 2} (eval* '(let [{:foo/keys [x] :excess ex} {:foo/x 1 :bar/y 2}] ex)))))
+  (testing ":select merged with :excess equals :all"
+    (is (eval* '(let [{:keys [a] :select s :excess ex :all m} {:a 1 :b 2 :c 3}]
+                  (= m (merge s ex)))))))
 
-(deftest defaults-test
-  (testing ":defaults binds a map of key to default value"
-    (is (= {} (eval* '(let [{:defaults d :or {}} {}] d))))
-    (is (= {:a 1} (eval* '(let [{:keys [a] :defaults d :or {:a 1}} {}] d))))
-    (is (= {:a 1} (eval* '(let [{:keys [a] :defaults d :or {a 1}} {}] d)))))
-  (testing ":defaults without :or is an error"
-    (is (throws? '(let [{:defaults d} {}] d))))
-  (testing "the same key can't have both a binding and a key default"
-    (is (throws? '(let [{:keys [a] :defaults d :or {:a 1 a 1}} {}] d)))))
+(deftest missing-test
+  (testing ":missing collects absent required keys instead of throwing"
+    (is (nil? (eval* '(let [{:keys! [a b] :missing m} {:a 1 :b 2}] m))))
+    (is (= {:c nil} (eval* '(let [{:keys! [a b c] :missing m} {:a 1 :b 2}] m))))
+    (is (= {:c nil} (eval* '(let [{:keys! [a b & :c] :missing m} {:a 1 :b 2}] m))))
+    (is (= '{c nil} (eval* '(let [{:syms! [a c] :missing m} '{a 1}] m))))
+    (is (= {"c" nil} (eval* '(let [{:strs! [a c] :missing m} {"a" 1}] m))))
+    (is (= #:foo{:d nil} (eval* '(let [{:foo/keys! [a d] :missing m} {:foo/a 1}] m)))))
+  (testing "a missing required key binds nil"
+    (is (= [1 nil] (eval* '(let [{:keys! [a c] :missing m} {:a 1}] [a c])))))
+  (testing "a present required key with a nil value is not missing"
+    (is (nil? (eval* '(let [{:keys! [a] :missing m} {:a nil}] m)))))
+  (testing "nested required keys are collected under the parent key"
+    (is (= {:nest {:x nil :y nil}}
+           (eval* '(let [{:keys! [a & :nest] {:keys! [x y]} :nest :missing m} {:a 0}] m))))
+    (is (= {:nest {:x nil :y nil}}
+           (eval* '(let [{:keys! [a & :nest] {:keys! [x y]} :nest :missing m} {:a 0 :nest nil}] m))))
+    (is (= {:nest {:y nil}}
+           (eval* '(let [{:keys! [a & :nest] {:keys! [x y]} :nest :missing m} {:a 0 :nest {:x 1}}] m))))
+    (is (nil? (eval* '(let [{:keys! [a & :nest] {:keys! [x y]} :nest :missing m}
+                            {:a 0 :nest {:x 1 :y 2}}]
+                        m))))
+    (is (= {:nest {:bb nil}}
+           (eval* '(let [{:keys! [a] {:keys! [bb]} :nest :missing m} {:a 1 :nest {:aa 10}}] m))))))
+
+(deftest selector-test
+  (testing "selector requires a map with at least one directive"
+    (is (throws? '(selector {:keys [a b]})))
+    (is (throws? '(let [m {}] (selector m))))
+    (is (throws? '(selector nil)))
+    (is (throws? '(selector {}))))
+  (testing "a single directive returns its value"
+    (is (= {:a 1 :b 2 :c 3 :d 4}
+           (eval* '((selector {:keys [a b & :c :z] :keys! [d] :select s}) {:a 1 :b 2 :c 3 :d 4 :e 5}))))
+    (is (= {:a 1 :z 42}
+           (eval* '((selector {:keys [a & :z] :select s :or {:z 42}}) {:a 1 :e 5}))))
+    (is (= {:e 5} (eval* '((selector {:keys [a] :excess ex}) {:a 1 :e 5}))))
+    (is (= {:a 1 :e 5} (eval* '((selector {:keys [a] :all m}) {:a 1 :e 5}))))
+    (is (= {:d nil} (eval* '((selector {:keys! [d] :missing m}) {:a 1})))))
+  (testing "a required key without :missing throws"
+    (is (throws? '((selector {:keys! [d] :select s}) {:a 1}))))
+  (testing "several directives return a map of directive to non-nil value"
+    (is (= {:select {:a 1}}
+           (eval* '((selector {:keys! [a] :select s :missing m}) {:a 1 :b 2}))))
+    (is (= {:select {:a 1} :excess {:b 2}}
+           (eval* '((selector {:keys [a] :select s :excess ex}) {:a 1 :b 2}))))))
 
 (deftest or-by-key-test
   (testing ":or accepts key -> val in addition to binding -> val"
@@ -201,13 +252,12 @@
     (is (= [1 42] (eval* '(let [{:strs [a b] :or {"b" 42}} {"a" 1}] [a b]))))))
 
 (deftest or-strictness-test
-  (testing "with :select, :all or :defaults every :or entry must be a bound key"
+  (testing "with :select or :all every :or entry must be a bound key"
     (is (throws? '(let [{:keys [a] :or {z 42} :select s} {:a 1}] s)))
     (is (throws? '(let [{:keys [a & :b] :or {b 42} :select s} {:a 1}] s)))
     (is (throws? '(let [{:keys [a] :or {:z 42} :all m} {:a 1}] m)))
-    (is (throws? '(let [{:defaults d :or {:a 1}} {}] d)))
     (is (throws? '(let [{:keys [a] :or {:a 1 :z 2} :select s} {:a 1}] s))))
-  (testing "without the new directives :or is unchecked"
+  (testing "without :select or :all :or is unchecked"
     (is (= 1 (eval* '(let [{:keys [a] :or {z 42}} {:a 1}] a))))))
 
 (deftest required-key-default-test
@@ -223,11 +273,11 @@
                         :or {message (str "Does not conform to " pred)}}
                        {:pred :int}]
                    message))))
-  (testing ":defaults, :select and :all still evaluate a default once"
-    (is (= [42 {:a 42} 1]
+  (testing ":select and :all evaluate a default once"
+    (is (= [42 {:a 42} {:a 42} 1]
            (eval* '(let [n (atom 0) f (fn [] (swap! n inc) 42)
-                         {:keys [a] :or {a (f)} :defaults d} {}]
-                     [a d @n]))))))
+                         {:keys [a] :or {a (f)} :select s :all m} {}]
+                     [a s m @n]))))))
 
 (deftest binding-contexts-test
   (testing "fn params"

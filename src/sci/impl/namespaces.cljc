@@ -1015,9 +1015,49 @@
   "Returns a map with only the non-nil values of map m. Returns nil if
   m has no non-nil vals."
   [m]
-  (reduce-kv
-   (fn [m k v] (if (some? v) (assoc m k v) m))
-   nil m))
+  (when m
+    (reduce-kv
+     (fn [m k v] (if (some? v) (assoc m k v) m))
+     nil m)))
+
+(defn selector*
+  "Builds a selecting-fn from m, a map destructuring form that must
+  include one or more of the :select, :all, :missing, and :excess
+  directives. The return function takes a collection, destructures it
+  per m, and returns a map of the result(s).
+
+  If m has exactly one directive, the result is the value that
+  directive would yield. If m has more than one directive, then it
+  returns a map of directives to values.
+
+  As in destructuring, :missing controls whether missing required keys
+  throw or are collected.
+
+  While a map destructuring form may and sometimes must include
+  bindings, selector doesn't produce bindings, thus ignoring the
+  associated directive names.
+
+  Throws an exception if the argument is not a map."
+  [_ _ m]
+  (when (not (map? m))
+    (throw (new #?(:cljd ArgumentError
+                   :clj IllegalArgumentException
+                   :cljs js/Error)
+                "expected a map")))
+  (let [dirs [:select :excess :missing :all]
+        names (zipmap (filter m dirs) (repeatedly gensym))
+        gmap (gensym "map")]
+    (if (empty? names)
+      (throw (new #?(:cljd ArgumentError
+                     :clj IllegalArgumentException
+                     :cljs js/Error)
+                  "form must contain at least one of :select :excess :missing :all"))
+      (list 'fn* (gensym "selector")
+            [gmap]
+            (list 'clojure.core/let [(merge m names) gmap]
+                  (if (= 1 (count names))
+                    (-> names first val)
+                    (list 'clojure.core/some-vals names)))))))
 
 #?(:clj (def clojure-version-var
           (sci.impl.utils/dynamic-var
@@ -1875,6 +1915,7 @@
      'set? (copy-core-var set?)
      'sequential? (copy-core-var sequential?)
      'select-keys (copy-core-var select-keys)
+     'selector (macrofy 'selector selector*)
      #?@(:clj ['short-array (copy-core-var short-array)])
      'simple-keyword? (copy-core-var simple-keyword?)
      'simple-symbol? (copy-core-var simple-symbol?)

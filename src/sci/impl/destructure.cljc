@@ -4,8 +4,8 @@
   (:refer-clojure :exclude [destructure])
   (:require [clojure.string :as str]))
 
-;; destvec* and destmap* track clojure/clojure core.clj at dd006fb9 (2026-07-24),
-;; the commit that added the :all directive. Diff against that when syncing.
+;; destvec* and destmap* track clojure/clojure core.clj at 98d735fa (2026-10-06).
+;; Diff against that when syncing.
 
 (defn- destructure-error [msg]
   (throw #?(:cljs (new js/Error msg)
@@ -19,6 +19,13 @@
 (def ^:private merge-sym 'clojure.core/merge)
 (def ^:private select-keys-sym 'clojure.core/select-keys)
 (def ^:private when-let-sym 'clojure.core/when-let)
+(def ^:private when-not-sym 'clojure.core/when-not)
+(def ^:private identical?-sym 'clojure.core/identical?)
+(def ^:private assoc-sym 'clojure.core/assoc)
+(def ^:private dissoc-sym 'clojure.core/dissoc)
+(def ^:private apply-sym 'clojure.core/apply)
+(def ^:private not-empty-sym 'clojure.core/not-empty)
+(def ^:private new-object-form #?(:cljs '(clojure.core/js-obj) :default '(new Object)))
 
 (defn- destvec*
   [pb bvec b val loc]
@@ -61,16 +68,17 @@
 (defn- destmap*
   [pb bvec b v]
   (let [gmap (gensym "map__")
-        gignore (gensym "ignore__")
+        gtemp (gensym "temp__")
         defaults (:or b)
-        defaults-as (:defaults b)
-        _ (when (and defaults-as (not defaults))
-            (destructure-error "Can't specify :defaults without :or"))
         b (dissoc b :defaults)
         select (:select b)
         all (:all b)
-        ;; PATCH: hoist :or defaults only for :defaults/:select/:all, clojure/clojure 208443ae breaks siblings
-        new-or-code (and defaults (or defaults-as select all))
+        excess (:excess b)
+        missing (:missing b)
+        gnotfound (when missing (gensym "notfound__"))
+        gnotfound? (when missing (gensym "notfound?__"))
+        ;; PATCH: hoist :or defaults only for :select/:all, clojure/clojure 208443ae breaks siblings
+        new-or-code (and defaults (or select all))
         gdefaults (when new-or-code (zipmap (keys defaults) (repeatedly #(gensym "default__"))))
         defexpr (fn [k] (if gdefaults (gdefaults k) (defaults k)))
         xf (fn [mk]
@@ -92,15 +100,19 @@
                    (if (:as b)
                      (conj ret (:as b) gmap)
                      ret))))
-        bes (dissoc b :as :or :select :all)
+        ret (if missing
+              (conj ret
+                    missing nil
+                    gnotfound new-object-form)
+              ret)
+        bes (dissoc b :as :or :select :all :excess :missing)
         localize (fn [bb] (if #?(:cljd (satisfies? INamed bb)
                                  :clj  (instance? clojure.lang.Named bb)
                                  :cljs (implements? INamed bb))
                             (with-meta (symbol nil (name bb)) (meta bb))
                             bb))
         push1 (fn [ret bb bk req?]
-                (let [getter (if req? req!-sym `get)
-                      local (localize bb)
+                (let [local (localize bb)
                       local-default? (contains? defaults local)
                       key-default? (contains? defaults bk)
                       bv (if (or local-default? key-default?)
@@ -111,12 +123,22 @@
                                (destructure-error
                                 (str "Can't supply default value for required key: " bk))
                                (list `get gmap bk (defexpr (if local-default? local bk)))))
-                           (list getter gmap bk))]
+                           (if req?
+                             (if missing
+                               (list `get gmap bk gnotfound)
+                               (list req!-sym gmap bk))
+                             (list `get gmap bk)))]
                   (if (or (keyword? bb) (symbol? bb)) ;(ident? bb)
-                    (-> ret (conj local bv))
+                    (if (and req? missing)
+                      (conj ret
+                            gtemp bv
+                            gnotfound? (list identical?-sym gtemp gnotfound)
+                            missing (list 'if gnotfound? (list assoc-sym missing bk nil) missing)
+                            local (list when-not-sym gnotfound? gtemp))
+                      (-> ret (conj local bv)))
                     (pb ret bb bv))))
         retsel
-        (loop [ret ret, sel #{}, bes bes, b->k {}, subs nil, suba nil]
+        (loop [ret ret, sel #{}, bes bes, b->k {}, subs nil, suba nil, subexcess nil, submissing nil]
           (if (seq bes)
             (let [be (first bes), bb (key be), bk (val be)]
               (if (keyword? bb)
@@ -136,13 +158,13 @@
                                          (str "'" bb "' - binding symbols can only appear before '&', use keys after")))
                                     bk (if preamp? (tr bb) bb)]
                                 (recur (if (or preamp? req?)
-                                         (push1 ret (if preamp? bb gignore) bk req?)
+                                         (push1 ret (if preamp? bb gtemp) bk req?)
                                          ret)
                                        (conj sel bk)
                                        (next bbs) preamp?
                                        (if preamp? (assoc b->k (localize bb) bk) b->k)))))
                           {:ret ret, :sel sel, :b->k b->k}))]
-                  (recur (:ret retsel) (:sel retsel) (next bes) (:b->k retsel) subs suba))
+                  (recur (:ret retsel) (:sel retsel) (next bes) (:b->k retsel) subs suba subexcess submissing))
                 (let [subsel? (and select (map? bb))
                       bb (if (or (not subsel?) (:select bb))
                            bb
@@ -153,23 +175,34 @@
                            bb
                            (assoc bb :all (gensym "all__")))
                       suba (if suball? (assoc suba bk (:all bb)) suba)
+                      subexcess? (and excess (map? bb))
+                      bb (if (or (not subexcess?) (:excess bb))
+                           bb
+                           (assoc bb :excess (gensym "excess__")))
+                      subexcess (if subexcess? (assoc subexcess bk (:excess bb)) subexcess)
+                      submissing? (and missing (map? bb))
+                      bb (if (or (not submissing?) (:missing bb))
+                           bb
+                           (assoc bb :missing (gensym "missing__")))
+                      submissing (if submissing? (assoc submissing bk (:missing bb)) submissing)
                       b->k (if (symbol? bb) (assoc b->k bb bk) b->k)]
-                  (recur (push1 ret bb bk false) (conj sel bk) (next bes) b->k subs suba))))
-            {:ret ret, :sel sel, :b->k b->k, :subs subs, :suba suba}))
-        ret (:ret retsel), sel (:sel retsel), b->k (:b->k retsel)
+                  (recur (push1 ret bb bk false) (conj sel bk) (next bes) b->k subs suba subexcess submissing))))
+            {:ret ret, :sel sel, :b->k b->k, :subs subs, :suba suba, :subexcess subexcess, :submissing submissing}))
+        ret (:ret retsel), sel (vec (:sel retsel)), b->k (:b->k retsel)
         bk #(if (symbol? %)
               (let [bk (b->k %)]
                 (when (and new-or-code (not bk))
                   (destructure-error (str "symbol " % " in :or does not refer to a binding")))
                 bk)
               %)
-        dm (when defaults (dissoc (zipmap (map bk (keys gdefaults)) (vals gdefaults)) nil))
+        dm (when defaults (zipmap (map bk (keys gdefaults)) (vals gdefaults)))
         _ (and new-or-code (not= (count (select-keys dm sel)) (count defaults))
                (destructure-error (str "keys "
                                        (apply disj (set (keys dm)) sel)
                                        " appear only in :or")))
+        dm (if (empty? dm) nil dm)
         merged (fn [subs]
-                 (list merge-sym (list some-vals-sym dm) gmap (list some-vals-sym subs)))
+                 (list merge-sym dm gmap (list some-vals-sym subs)))
         ret (if select
               (let [mm (gensym "mm__")]
                 (conj ret select
@@ -179,7 +212,16 @@
         ret (if all
               (conj ret all (merged (:suba retsel)))
               ret)
-        ret (if defaults-as (conj ret defaults-as dm) ret)]
+        ret (if excess
+              (conj ret excess
+                    (list merge-sym
+                          (list not-empty-sym (list apply-sym dissoc-sym gmap sel))
+                          (list some-vals-sym (:subexcess retsel))))
+              ret)
+        ret (if missing
+              (conj ret missing
+                    (list merge-sym missing (list some-vals-sym (:submissing retsel))))
+              ret)]
     ret))
 
 (defn destructure* [bindings loc]
