@@ -1870,6 +1870,26 @@
    (deftest require-cljs-core-test
      (is (= 3 (sci/eval-string "(require '[cljs.core :as c]) (c/inc 2)")))))
 
+#?(:cljs
+   (deftest array-list-test
+     (is (some? (sci/eval-string "(array-list)")))
+     (is (= [true 0 1 2 [1 2] true 0 [1 2] []]
+            (sci/eval-string
+             "(let [items (array-list)
+                    empty? (.isEmpty items)
+                    initial-size (.size items)
+                    first-size (.add items 1)
+                    second-size (.add items 2)
+                    snapshot (.toArray items)
+                    before-clear (vec snapshot)]
+                (.clear items)
+                [empty? initial-size first-size second-size before-clear
+                 (.isEmpty items) (.size items) (vec snapshot) (vec (.toArray items))])"
+             {:classes {:allow :all}})))
+     (is (true? (sci/eval-string
+                 "(require '[cljs.core :as c]) (array? (.toArray (c/array-list)))"
+                 {:classes {:allow :all}})))))
+
 (deftest ns-aliases-test
   (is (= 1 (sci/eval-string "(require '[foobar :as foo]) (foo/read-string \"1\")"
                             {:ns-aliases '{foobar clojure.edn}})))

@@ -976,6 +976,24 @@
      (or (get (meta x) :type)
          (cljs.core/type x))))
 
+#?(:cljs
+   (defn array-list* []
+     (let [items (cljs.core/array-list)
+           add (.-add items)
+           size (.-size items)
+           clear (.-clear items)
+           is-empty (.-isEmpty items)
+           to-array (.-toArray items)]
+       ;; SCI resolves interop members by their source names at runtime, while
+       ;; Closure may rename ArrayList's prototype methods under :advanced.
+       ;; Capture the compiled slots and publish stable aliases on the instance.
+       (aset items "add" add)
+       (aset items "size" size)
+       (aset items "clear" clear)
+       (aset items "isEmpty" is-empty)
+       (aset items "toArray" to-array)
+       items)))
+
 ;;;; Clojure 1.11.0 kwargs
 
 #?(:cljs
@@ -1575,6 +1593,8 @@
      'areduce (macrofy 'areduce areduce*)
      #?@(:cljs ['array? (copy-core-var array?)])
      #?@(:cljs ['array (copy-core-var array)])
+     #?@(:cljs ['array-list (copy-var array-list* clojure-core-ns
+                                      {:copy-meta-from cljs.core/array-list})])
      #?@(:cljs ['array-seq (copy-core-var array-seq)])
      ;; cljd has no array-map, syntax-quoted map literals expand to it
      #?@(:cljd ['array-map (new-var 'array-map hash-map clojure-core-ns)]
