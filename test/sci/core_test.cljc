@@ -884,7 +884,10 @@
                         (eval* "(for [x [1 2 3] :dude []] [i j])")))
   (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
                         #"args"
-                        (eval* "(for 1 2 3)"))))
+                        (eval* "(for 1 2 3)")))
+  (testing "for body sees only the binding as a local without __ in its name"
+    (is (= '[x] (eval* "(defmacro locals [] (list 'quote (vec (remove #(clojure.string/includes? (name %) \"__\") (keys &env)))))
+                        (first (for [x [1 2]] (locals)))")))))
 
 (deftest doseq-test
   (when-not tu/native?
