@@ -1255,7 +1255,14 @@
   (testing "macroexpand-1 expands a macro var in call position"
     (is (= [1 1] (eval* "(defmacro foo [x] `[~x ~x]) (macroexpand-1 (list #'foo 1))"))))
   (testing "macroexpand expands a macro var in call position"
-    (is (= '(if true (do 1)) (eval* "(macroexpand (list #'when true 1))")))))
+    (is (= '(if true (do 1)) (eval* "(macroexpand (list #'when true 1))"))))
+  #?(:clj (testing "macroexpand-1 expands import to clojure.core/import*"
+            (is (= '(do (clojure.core/import* "java.util.UUID") (clojure.core/import* "java.util.Date"))
+                   (eval* "(macroexpand-1 '(import (java.util UUID Date)))")))))
+  #?(:clj (testing "an expanded import of a record imports it"
+            (is (true? (eval* "(ns foo) (defrecord R [x]) (ns bar)
+                               (eval (macroexpand '(import (foo R))))
+                               (instance? R (foo/->R 1))"))))))
 
 (deftest macro-var-call-test
   (testing "a macro var in call position expands"

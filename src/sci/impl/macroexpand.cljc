@@ -8,6 +8,19 @@
             [sci.impl.utils :refer [kw-identical? var? macro? special-syms]]
             [sci.impl.vars :as vars]))
 
+#?(:clj
+   (defn- expand-import [import-symbols-or-lists]
+     (let [specs (map #(if (and (seq? %) (= 'quote (first %))) (second %) %)
+                      import-symbols-or-lists)]
+       (cons 'do
+             (map #(list 'clojure.core/import* %)
+                  (reduce (fn [v spec]
+                            (if (symbol? spec)
+                              (conj v (name spec))
+                              (let [p (first spec) cs (rest spec)]
+                                (into v (map #(str p "." %) cs)))))
+                          [] specs))))))
+
 (defn macroexpand-1 [ctx expr]
   (let [ctx (assoc ctx :sci.impl/macroexpanding true)
         original-expr expr]
@@ -33,8 +46,12 @@
                                 macro-var? (and var?
                                                 (vars/isMacro f))
                                 f (if macro-var? @f f)]
-                            (if (or macro-var? (macro? f))
+                            (cond
+                              (or macro-var? (macro? f))
                               (apply f original-expr (:bindings ctx) (rest expr))
+                              #?@(:clj [(= 'import f)
+                                        (expand-import (rest expr))])
+                              :else
                               (if (str/starts-with? sname ".")
                                 (let [target (second expr)
                                       target (if (and (symbol? target)
