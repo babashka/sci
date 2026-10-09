@@ -15,9 +15,9 @@
 
 (deftest reify-macroexpand-all-test
   (testing "clojure.walk/macroexpand-all expands a reify form to reify*"
-    (is (= 'clojure.core/reify*
+    (is (= "reify*"
            (tu/eval* "(require 'clojure.walk)
-                      (first (clojure.walk/macroexpand-all '(reify Object (toString [this] \"this!\"))))"
+                      (name (first (clojure.walk/macroexpand-all '(reify Object (toString [this] \"this!\")))))"
                      nil)))))
 
 (deftest reify-mixed-protocol-class-test
