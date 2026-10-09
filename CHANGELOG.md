@@ -15,7 +15,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Clojure 1.13 map destructuring as of clojure/clojure 98d735fa: `:excess` and `:missing` directives, `:defaults` removed. Adds the `selector` macro to `clojure.core`.
 - Minimum Clojure version is `1.11.1`
 - `merge` returns the other argument unchanged if one argument is nil (Clojure 1.13)
-- A macro var in call position expands, in analysis and `macroexpand-1`: `(eval (list #'when true 1))`
+- A macro var in call position expands, in analysis, `macroexpand-1` and `macroexpand`: `(eval (list #'when true 1))`
 
 ## 0.15.39
 
