@@ -43,7 +43,9 @@
                                                target)]
                                   (list* '. target (symbol (subs sname 1)) (nnext expr)))
                                 expr))))))))
-            expr))
+            (if (and (var? op) (vars/isMacro op))
+              (apply @op original-expr (:bindings ctx) (rest expr))
+              expr)))
         expr))))
 
 (defn macroexpand
