@@ -1956,7 +1956,8 @@
   (with-top-level-loc top-level? m
     (try
       (let [f* (first expr)]
-        (cond (symbol? f*)
+        (cond (or (symbol? f*)
+                  (and (utils/var? f*) (macro? f*)))
               (let [fsym f*
                     ;; in call position Clojure prioritizes special symbols over
                     ;; bindings
@@ -1964,8 +1965,9 @@
                     _ (when (and special-sym
                                  (:check-permissions ctx))
                         (resolve/check-permission! ctx f* [special-sym nil]))
-                    f (or special-sym
-                          (resolve/resolve-symbol ctx f* true))
+                    f (cond special-sym special-sym
+                            (symbol? f*) (resolve/resolve-symbol ctx f* true)
+                            :else f*)
                     f-meta (meta f)
                     eval? (and f-meta (:sci.impl/op f-meta))
                     fast-path (-> f-meta :sci.impl/fast-path)

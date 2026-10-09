@@ -1251,7 +1251,20 @@
                    (eval* "(macroexpand-1 {'a 1} '(cond 1 1))")))
             (is (= '(cond 1 1)
                    (eval* "(macroexpand-1 {'cond 1} '(cond 1 1))"))
-                "local shadows macro"))))
+                "local shadows macro")))
+  (testing "macroexpand-1 expands a macro var in call position"
+    (is (= [1 1] (eval* "(defmacro foo [x] `[~x ~x]) (macroexpand-1 (list #'foo 1))"))))
+  (testing "macroexpand expands a macro var in call position"
+    (is (= '(if true (do 1)) (eval* "(macroexpand (list #'when true 1))")))))
+
+(deftest macro-var-call-test
+  (testing "a macro var in call position expands"
+    (is (= [1 1] (eval* "(defmacro foo [x] [x x]) (eval (list #'foo 1))"))))
+  (testing "a function var in call position is called"
+    (is (= 2 (eval* "(eval (list #'inc 1))"))))
+  (testing "a macro var in call position sees locals in &env"
+    (is (= '[a] (eval* "(defmacro locals [] (list 'quote (vec (keys &env))))
+                        (eval (list 'let '[a 1] (list #'locals)))")))))
 
 (deftest macroexpand-call-test
   (is (= [1 1] (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] [x x]) (macroexpand '(foo 1))")))
