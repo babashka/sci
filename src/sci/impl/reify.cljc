@@ -22,19 +22,19 @@
                      (map (fn [[meth bodies]]
                             `['~(simple-meth meth) (fn ~@(map rest bodies))]))
                      (into {}))]
-    `(clojure.core/reify* '~form ~(vec classes) ~methods '~arities)))
+    `(clojure.core/reify* '~(meta form) ~(vec classes) ~methods '~arities)))
 
 (defn reify*
-  #?(:cljd [_form classes methods _arities]
-     :clj [form classes methods _arities]
-     :cljs [_form classes methods arities])
+  #?(:cljd [_form-meta classes methods _arities]
+     :clj [form-meta classes methods _arities]
+     :cljs [_form-meta classes methods arities])
      #?(:cljd (t/->Reified classes methods (set classes))
         :clj (let [{interfaces true protocols false} (group-by class? classes)]
             (if-let [factory (:reify-fn (store/get-ctx))]
               (if-let [obj (factory {:interfaces (set interfaces)
                                      :methods methods
                                      :protocols (set protocols)})]
-                (with-meta obj (meta form))
+                (with-meta obj form-meta)
                 (throw (ex-info (str "Unsupported interface in reify: " (first interfaces))
                                 {:interfaces interfaces})))
               (throw (ex-info (str "No reify factory for: " interfaces)

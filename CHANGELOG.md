@@ -16,6 +16,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Minimum Clojure version is `1.11.1`
 - `merge` returns the other argument unchanged if one argument is nil (Clojure 1.13)
 - A macro var in call position expands, in analysis, `macroexpand-1` and `macroexpand`: `(eval (list #'when true 1))`
+- Fix stack overflow in `clojure.walk/macroexpand-all` on a `reify` form
 
 ## 0.15.39
 
