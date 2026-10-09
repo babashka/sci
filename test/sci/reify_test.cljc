@@ -14,11 +14,11 @@
                   (tu/eval* "(meta ^{:k :v} (reify Object (toString [this] \"this!\")))" nil)))))))
 
 (deftest reify-macroexpand-all-test
-  (testing "clojure.walk/macroexpand-all expands a reify form to reify*"
-    (is (= "reify*"
-           (tu/eval* "(require 'clojure.walk)
-                      (name (first (clojure.walk/macroexpand-all '(reify Object (toString [this] \"this!\")))))"
-                     nil)))))
+  (testing "a reify form expanded by clojure.walk/macroexpand-all evaluates"
+    (is (= 1 (tu/eval* "(require 'clojure.walk)
+                        (defprotocol P (p [_]))
+                        (p (eval (clojure.walk/macroexpand-all '(reify P (p [_] 1)))))"
+                       nil)))))
 
 (deftest reify-mixed-protocol-class-test
   #?(:clj
