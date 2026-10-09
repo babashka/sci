@@ -204,7 +204,7 @@
   ([&form _&env bindings then else & _oldform]
    (assert-single-binding-vector &form "if-let" bindings)
    (let [form (bindings 0) tst (bindings 1)
-         tmp (gensym "temp")]
+         tmp (gensym "temp__")]
      `(let [~tmp ~tst]
         (if ~tmp
           ~(with-meta `(let [~form ~tmp]
@@ -218,7 +218,7 @@
   ([&form _&env bindings then else & _oldform]
    (assert-single-binding-vector &form "if-some" bindings)
    (let [form (bindings 0) tst (bindings 1)
-         tmp (gensym "temp")]
+         tmp (gensym "temp__")]
      `(let [~tmp ~tst]
         (if (nil? ~tmp)
           ~else
@@ -231,7 +231,7 @@
   [&form _&env bindings & body]
   (assert-single-binding-vector &form "when-let" bindings)
   (let [form (bindings 0) tst (bindings 1)
-        tmp (gensym "temp")]
+        tmp (gensym "temp__")]
     `(let [~tmp ~tst]
        (when ~tmp
          ~(with-meta
@@ -248,7 +248,7 @@
 (defn when-some* [&form _ bindings & body]
   (assert-single-binding-vector &form "when-some" bindings)
   (let [form (bindings 0) tst (bindings 1)
-        tmp (gensym "temp")]
+        tmp (gensym "temp__")]
     `(let [~tmp ~tst]
        (if (nil? ~tmp)
          nil

@@ -74,7 +74,7 @@
                                           :else
                                           `(do (chunk-append ~gb ~body-expr)
                                                (~allowed-recur (#?(:cljd ~'unchecked-inc :default unchecked-inc) ~gi)))))
-                              c-sym (gensym "c")]
+                              c-sym (gensym "c__")]
                           `(fn ~giter [~gxs]
                              (lazy-seq
                                (~allowed-loop [~gxs ~gxs]
