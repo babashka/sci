@@ -403,6 +403,20 @@
   [_ _ name & decls]
   (list* `defn (with-meta name (assoc (meta name) :private true)) decls))
 
+#?(:clj
+   (defn import*
+     [form _ & import-symbols-or-lists]
+     (let [specs (map #(if (and (seq? %) (= 'quote (first %))) (second %) %)
+                      import-symbols-or-lists)]
+       (cons 'do
+             (map #(with-meta (list 'clojure.core/import* %) (meta form))
+                  (reduce (fn [v spec]
+                            (if (symbol? spec)
+                              (conj v (name spec))
+                              (let [p (first spec) cs (rest spec)]
+                                (into v (map #(str p "." %) cs)))))
+                          [] specs))))))
+
 (defn condp*
   [_ _ pred expr & clauses]
   (let [gpred (gensym "pred__")
@@ -1621,6 +1635,7 @@
      'cond-> (macrofy 'cond-> cond->*)
      'cond->> (macrofy 'cond->> cond->>*)
      'condp (macrofy 'condp condp*)
+     #?@(:clj ['import (macrofy 'import import*)])
      'conj (copy-core-var conj)
      'conj! (copy-core-var conj!)
      'cons (copy-core-var cons)
