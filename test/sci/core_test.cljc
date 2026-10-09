@@ -887,7 +887,12 @@
                         (eval* "(for 1 2 3)")))
   (testing "for body sees only the binding as a local without __ in its name"
     (is (= '[x] (eval* "(defmacro locals [] (list 'quote (vec (remove #(clojure.string/includes? (name %) \"__\") (keys &env)))))
-                        (first (for [x [1 2]] (locals)))")))))
+                        (first (for [x [1 2]] (locals)))"))))
+  (testing "if-let, when-let, if-some, when-some, when-first and condp bodies see only the binding without __"
+    (is (= '[[a] [a] [a] [a] [a] [_]]
+           (eval* "(defmacro locals [] (list 'quote (vec (remove #(clojure.string/includes? (name %) \"__\") (keys &env)))))
+                   [(if-let [a 1] (locals)) (when-let [a 1] (locals)) (if-some [a 1] (locals))
+                    (when-some [a 1] (locals)) (when-first [a [1]] (locals)) (condp = 1 1 :>> (fn [_] (locals)))]")))))
 
 (deftest doseq-test
   (when-not tu/native?
