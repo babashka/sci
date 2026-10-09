@@ -1267,6 +1267,8 @@
   #?(:clj (testing "macroexpand-1 expands import to clojure.core/import*"
             (is (= '(do (clojure.core/import* "java.util.UUID") (clojure.core/import* "java.util.Date"))
                    (eval* "(macroexpand-1 '(import (java.util UUID Date)))")))))
+  #?(:clj (testing "import resolves to a macro var"
+            (is (true? (eval* "(:macro (meta (resolve 'import)))")))))
   #?(:clj (testing "an expanded import of a record imports it"
             (is (true? (eval* "(ns foo) (defrecord R [x]) (ns bar)
                                (eval (macroexpand '(import (foo R))))

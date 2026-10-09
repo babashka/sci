@@ -293,7 +293,7 @@
 (def ana-macros
   '#{do if and or fn fn* def defn
      lazy-seq try defmacro
-     expand-dot* expand-constructor new . import in-ns ns var
+     expand-dot* expand-constructor new . #?@(:clj [] :default [import]) in-ns ns var
      set! resolve})
 
 (defn maybe-destructured

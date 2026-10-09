@@ -1832,7 +1832,7 @@
     set! (analyze-set! ctx expr)
     quote (analyze-quote ctx expr)
     import (analyze-import ctx expr)
-    clojure.core/import* (analyze-import ctx (list* 'import (map symbol (rest expr))))
+    clojure.core/import* (analyze-import ctx (with-meta (list* 'import (map symbol (rest expr))) (meta expr)))
     recur (let [children (analyze-children (without-recur-target ctx) (rest expr))
                 node (return-recur ctx expr children)]
             (t/attach-ast node [:recur children]))
