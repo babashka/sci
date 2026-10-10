@@ -24,6 +24,24 @@
                (is (= '(+ 1 2 3) v))
                (is (meta v))))))
 
+       (deftest symbol-location-test
+         (when-not tu/native?
+           (testing "a top-level symbol gets the position before it, also at a newline or the end of input"
+             (let [opts {:classes {'java.io.StringReader java.io.StringReader
+                                   'clojure.lang.LineNumberingPushbackReader
+                                   clojure.lang.LineNumberingPushbackReader}}
+                   locs (fn [s]
+                          (sci/eval-string
+                           (str "(let [r (clojure.lang.LineNumberingPushbackReader. (java.io.StringReader. " (pr-str s) "))]
+                                   (loop [acc []]
+                                     (let [v (read {:eof :eof} r)]
+                                       (if (= :eof v) acc (recur (conj acc (select-keys (meta v) [:line :column])))))))")
+                           opts))]
+               (is (= [{:line 1 :column 1}] (locs "foo")))
+               (is (= [{:line 1 :column 1}] (locs "foo\n")))
+               (is (= [{:line 1 :column 3}] (locs "  foo")))
+               (is (= [{:line 1 :column 1} {:line 2 :column 1}] (locs "(a)\nb")))))))
+
        (deftest read-cond-preserve-test
          (when-not tu/native?
            (testing "read can return ReaderConditional"

@@ -19,6 +19,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix stack overflow in `clojure.walk/macroexpand-all` on a `reify` form
 - `for`, `if-let`, `when-let`, `if-some`, `when-some`, `when-first` and `condp` name their internal locals with `__`, like Clojure's auto-gensyms
 - `import` is a macro that expands to `(do (clojure.core/import* "pkg.Class") ...)`
+- Fix the location of a top-level symbol followed by a newline or the end of input when reading from a `LineNumberingPushbackReader`
 
 ## 0.15.39
 

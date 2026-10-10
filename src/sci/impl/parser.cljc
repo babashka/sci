@@ -6,6 +6,7 @@
    #?(:cljd [edamame.impl.cljd-reader-types :as rt]
       :default [clojure.tools.reader.reader-types :as rt])
    [edamame.core :as edamame]
+   [edamame.impl.parser :as edamame-impl]
    [sci.impl.interop :as interop]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]))
@@ -164,17 +165,16 @@
 (defn parse-next*
   "Parses the next form from r with options made by parse-opts."
   [r edamame-opts]
-  (try (let [v (edamame/parse-next r edamame-opts)]
+  (try (let [ir? (rt/indexing-reader? r)
+             ;; a top-level symbol gets the position before the form
+             _ (when ir? (edamame-impl/skip-whitespace nil r))
+             line (when ir? (get-line-number r))
+             column (when ir? (get-column-number r))
+             v (edamame/parse-next r edamame-opts)]
          (if (utils/kw-identical? v :edamame.core/eof)
            eof
-           (if (and (symbol? v)
-                    (rt/indexing-reader? r))
-             (vary-meta v assoc
-                        :line (get-line-number r)
-                        :column (- (get-column-number r)
-                                   #?(:cljd (.-length (str v))
-                                      :clj (.length (str v))
-                                      :cljs (.-length (str v)))))
+           (if (and ir? (symbol? v))
+             (vary-meta v assoc :line line :column column)
              v)))
        (catch #?(:cljd cljd.core/ExceptionInfo
                  :clj clojure.lang.ExceptionInfo
