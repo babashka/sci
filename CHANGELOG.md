@@ -22,6 +22,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix the location of a top-level symbol followed by a newline or the end of input when reading from a `LineNumberingPushbackReader`
 - Fix `instance?` on a protocol returning `true` for a type the protocol is extended to, such as `nil` or `Object`, on the JVM
 - `instance?` on a marker protocol implemented in a `deftype` body returns `true`, on the JVM
+- `satisfies?` on a marker protocol implemented in a `deftype` body returns `true`
 
 ## 0.15.39
 

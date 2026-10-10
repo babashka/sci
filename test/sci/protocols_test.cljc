@@ -418,7 +418,9 @@
  (instance? P nil) (instance? P 1) (instance? P (->Extended))]")))))
   #?(:clj
      (testing "instance? on a marker protocol counts a deftype body"
-       (is (true? (eval* "(defprotocol M) (deftype T [] M) (instance? M (T.))"))))))
+       (is (true? (eval* "(defprotocol M) (deftype T [] M) (instance? M (T.))")))))
+  (testing "satisfies? on a marker protocol counts a deftype body"
+    (is (true? (eval* "(defprotocol M) (deftype T [] M) (satisfies? M (T.))")))))
 
 
 #?(:cljs
