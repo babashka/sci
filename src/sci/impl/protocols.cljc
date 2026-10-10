@@ -384,6 +384,16 @@
    (defn inst?* [x]
      (satisfies? (deref core-protocols/inst-protocol) x)))
 
+#?(:clj
+   (defn- implements?
+     "Returns true if x is a reify, record or type that implements protocol in
+     its body. A protocol extended to x's type with extend-type or
+     extend-protocol does not count."
+     [protocol x]
+     (or (when (instance? sci.impl.types.ICustomType x)
+           (contains? (types/getProtocols x) protocol))
+         (contains? (:implementers protocol) (type->str (types/type-impl x))))))
+
 (defn instance-impl [clazz x]
   (cond
     ;; fast path for Clojure when using normal clazz
@@ -406,7 +416,7 @@
               (or (satisfies? clazz x)
                   ;; this is the fallback because we excluded defaults for the core protocols
                   (instance? c x))
-              (satisfies? clazz x))
+              (implements? clazz x))
        :cljs (satisfies? clazz x))
     ;; could we have a fast path for CLJS too? please let me know!
     :else #?(:cljd (if (dart/is? clazz Type)
