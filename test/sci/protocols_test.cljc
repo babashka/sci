@@ -403,7 +403,19 @@
   (is (true? (eval* "(= 'P (defprotocol P))"))))
 
 (deftest instance-test
-  (is (true? (eval* "(defprotocol Registry) (defn reg? [x] (instance? Registry x)) (reg? (reify Registry))"))))
+  (is (true? (eval* "(defprotocol Registry) (defn reg? [x] (instance? Registry x)) (reg? (reify Registry))")))
+  #?(:clj
+     (testing "instance? on a protocol counts only implementations in a type body"
+       (is (= [true true true false false false]
+              (eval* "
+(defprotocol P (p [_]))
+(extend-protocol P nil (p [_] :nil) Object (p [_] :object))
+(defrecord Inline [] P (p [_] :inline))
+(deftype InlineType [] P (p [_] :inline))
+(defrecord Extended [])
+(extend-type Extended P (p [_] :extended))
+[(instance? P (->Inline)) (instance? P (->InlineType)) (instance? P (reify P (p [_] :reify)))
+ (instance? P nil) (instance? P 1) (instance? P (->Extended))]"))))))
 
 
 #?(:cljs
