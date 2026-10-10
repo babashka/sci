@@ -390,10 +390,9 @@
      its body. A protocol extended to x's type with extend-type or
      extend-protocol does not count."
      [protocol x]
-     (boolean
-      (or (when (instance? sci.impl.types.ICustomType x)
-            (contains? (types/getProtocols x) protocol))
-          (contains? (:implementers protocol) (type->str (types/type-impl x)))))))
+     (or (when (instance? sci.impl.types.ICustomType x)
+           (contains? (types/getProtocols x) protocol))
+         (contains? (:implementers protocol) (type->str (types/type-impl x))))))
 
 (defn instance-impl [clazz x]
   (cond

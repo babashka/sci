@@ -415,7 +415,10 @@
 (defrecord Extended [])
 (extend-type Extended P (p [_] :extended))
 [(instance? P (->Inline)) (instance? P (->InlineType)) (instance? P (reify P (p [_] :reify)))
- (instance? P nil) (instance? P 1) (instance? P (->Extended))]"))))))
+ (instance? P nil) (instance? P 1) (instance? P (->Extended))]")))))
+  #?(:clj
+     (testing "instance? on a marker protocol counts a deftype body"
+       (is (true? (eval* "(defprotocol M) (deftype T [] M) (instance? M (T.))"))))))
 
 
 #?(:cljs

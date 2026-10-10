@@ -620,10 +620,8 @@
                                 ~rec-type ~protocol-name ~method-impls))])
                           (let [protocol-var (:var protocol)
                                 _ (when protocol-var
-                                    (vars/alter-var-root protocol-var
-                                                         #(-> %
-                                                              (update :satisfies (fnil conj #{}) (symbol (str rec-type)))
-                                                              (update :implementers (fnil conj #{}) (str rec-type)))))
+                                    (vars/alter-var-root protocol-var update :satisfies
+                                                         (fnil conj #{}) (symbol (str rec-type))))
                                 protocol-ns (:ns protocol)
                                 pns (cond protocol-ns (str (types/getName protocol-ns))
                                           (= ::object protocol) "sci.impl.deftype")
