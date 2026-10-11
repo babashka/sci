@@ -18,6 +18,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - A macro var in call position expands, in analysis, `macroexpand-1` and `macroexpand`: `(eval (list #'when true 1))`
 - Fix stack overflow in `clojure.walk/macroexpand-all` on a `reify` form
 - `for`, `if-let`, `when-let`, `if-some`, `when-some`, `when-first` and `condp` name their internal locals with `__`, like Clojure's auto-gensyms
+- `ns-aliases` keeps the alias of a removed namespace
 - `import` is a macro that expands to `(do (clojure.core/import* "pkg.Class") ...)`
 - Fix the location of a top-level symbol followed by a newline or the end of input when reading from a `LineNumberingPushbackReader`
 - Fix `instance?` on a protocol returning `true` for a type the protocol is extended to, such as `nil` or `Object`, on the JVM
