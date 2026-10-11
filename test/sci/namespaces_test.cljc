@@ -98,6 +98,8 @@
   (testing "alias accepts namespace objects"
     (is (= 'clojure.core (eval* "(alias 'c (find-ns 'clojure.core)) (ns-name (get (ns-aliases *ns*) 'c))")))
     (is (= 'my.new.ns (eval* "(alias 'mns (create-ns 'my.new.ns)) (ns-name (get (ns-aliases *ns*) 'mns))"))))
+  (testing "ns-aliases keeps the alias of a removed namespace"
+    (is (= 'removed.ns (eval* "(create-ns 'removed.ns) (alias 'r 'removed.ns) (remove-ns 'removed.ns) (ns-name (get (ns-aliases *ns*) 'r))"))))
   (is (contains? (set (eval* "(clojure.repl/dir-fn 'clojure.string)"))
                  'last-index-of))
   (is (true? (eval* "(def foo-ns (create-ns 'foo)) (def another-foo-ns (create-ns 'foo))
