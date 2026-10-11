@@ -643,8 +643,7 @@
          ns-name (types/getName ns)
          env (:env ctx)]
      (or (get-in @env [:namespaces ns-name var-sym])
-         (let [var-name (symbol (str ns-name) (str var-sym))
-               new-var (sci.impl.utils/new-var var-name nil (assoc (meta var-sym) :ns ns))]
+         (let [new-var (sci.impl.utils/new-var var-sym nil (assoc (meta var-sym) :ns ns))]
            (sci.impl.vars/unbind new-var)
            (swap! env assoc-in [:namespaces ns-name var-sym] new-var)
            new-var))))
@@ -656,8 +655,7 @@
      (or (when-let [v (get-in @env [:namespaces ns-name var-sym])]
            (sci.impl.vars/bindRoot v val)
            v)
-         (let [var-name (symbol (str ns-name) (str var-sym))
-               new-var (sci.impl.utils/new-var var-name val (assoc (meta var-sym) :ns ns))]
+         (let [new-var (sci.impl.utils/new-var var-sym val (assoc (meta var-sym) :ns ns))]
            (swap! env assoc-in [:namespaces ns-name var-sym] new-var)
            new-var)))))
 
