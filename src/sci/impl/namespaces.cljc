@@ -565,17 +565,27 @@
   (let [ctx (store/get-ctx)]
     (sci-ns-imports* ctx sci-ns)))
 
+(def ^:private core-refers-cache (volatile! nil))
+
+(defn- core-refers
+  "Returns the public vars of clojure-core, the clojure.core namespace map.
+  Caches the result for the identical map."
+  [clojure-core]
+  (let [[cached-core cached-refers] @core-refers-cache]
+    (if (identical? cached-core clojure-core)
+      cached-refers
+      (let [refers (into {} (remove (fn [[_ v]]
+                                      (and (utils/var? v)
+                                           (:private (meta v)))))
+                         (clean-ns clojure-core))]
+        (vreset! core-refers-cache [clojure-core refers])
+        refers))))
+
 (defn sci-ns-refers* [ctx sci-ns]
   (let [name (sci-ns-name* ctx sci-ns)
         env @(:env ctx)
-        refers (get-in env [:namespaces name :refers])
-        clojure-core (get-in env [:namespaces 'clojure.core])
-        clojure-core (clean-ns clojure-core)
-        clojure-core (into {} (remove (fn [[_ v]]
-                                        (and (utils/var? v)
-                                             (:private (meta v)))))
-                            clojure-core)]
-    (merge clojure-core refers)))
+        refers (get-in env [:namespaces name :refers])]
+    (merge (core-refers (get-in env [:namespaces 'clojure.core])) refers)))
 
 (defn sci-ns-refers [sci-ns]
   (let [ctx (store/get-ctx)]
@@ -586,9 +596,11 @@
     (get-in @(:env ctx) [:namespaces name :types])))
 
 (defn sci-ns-map [sci-ns]
-  (let [ctx (store/get-ctx)]
-    (merge (sci-ns-imports* ctx sci-ns)
-           (sci-ns-refers* ctx sci-ns)
+  (let [ctx (store/get-ctx)
+        imports (sci-ns-imports* ctx sci-ns)]
+    (merge (reduce-kv (fn [m k v] (if (contains? m k) m (assoc m k v)))
+                      (sci-ns-refers* ctx sci-ns)
+                      imports)
            (sci-ns-interns* ctx sci-ns)
            (sci-ns-types* ctx sci-ns))))
 

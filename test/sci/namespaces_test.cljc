@@ -184,14 +184,18 @@
   (is (eval* "(def x 1) (nil? (get (ns-refers *ns*) 'x))"))
   (is (eval* "(require '[clojure.string :refer [includes?]]) (some? (get (ns-refers *ns*) 'includes?))"))
   (testing "private vars are not referred"
-    (is (eval* "(every? (fn [[_ v]] (not (:private (meta v)))) (ns-refers *ns*))"))))
+    (is (eval* "(every? (fn [[_ v]] (not (:private (meta v)))) (ns-refers *ns*))")))
+  (testing "a var defined in clojure.core after a call to ns-refers is referred"
+    (is (true? (eval* "(ns-refers *ns*) (in-ns 'clojure.core) (def added-later 1) (in-ns 'user) (contains? (ns-refers 'user) 'added-later)")))))
 
 (deftest ns-map-test
   (is (eval* "(some? (get (ns-map *ns*) 'inc))"))
   #?(:clj (is (eval* "(some? (get (ns-map *ns*) 'String))")))
   (is (eval* "(defn- foo []) (some? (get (ns-map *ns*) 'foo))"))
   (testing "ns-map reflects interned vars shadowing refers"
-    (is (= :foo (eval* "(defn inc [x] :foo) ((get (ns-map *ns*) 'inc) 1)")))))
+    (is (= :foo (eval* "(defn inc [x] :foo) ((get (ns-map *ns*) 'inc) 1)"))))
+  #?(:clj (testing "ns-map reflects interned vars shadowing imports"
+            (is (eval* "(def String 1) (var? (get (ns-map *ns*) 'String))")))))
 
 (deftest ns-unmap-test
   (is (eval* "(def foo 1) (ns-unmap *ns* 'foo) (nil? (resolve 'foo))"))
