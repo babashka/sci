@@ -1597,6 +1597,10 @@
     (is (true?
          (sci/eval-string
           "(ns foo) (ns bar) (intern 'foo (with-meta 'x {:a true}) 1) (:a (meta #'foo/x))"))))
+  (testing "an interned var has the unqualified symbol, like a defined var"
+    (when-not tu/native?
+      (is (= 'x (.-sym (sci/eval-string "(ns foo) (ns bar) (intern 'foo 'x 1)"))))
+      (is (= 'y (.-sym (sci/eval-string "(ns foo) (ns bar) (intern 'foo 'y)"))))))
   (testing "intern via API"
     (let [ctx (sci/init {:namespaces {'foo {}}})]
       (sci/intern ctx 'foo 'x 2)
