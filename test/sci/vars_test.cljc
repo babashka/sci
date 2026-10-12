@@ -1,6 +1,6 @@
 (ns sci.vars-test
   (:require
-   #?@(:cljd [] :clj [[sci.addons :as addons]])
+   #?@(:cljd [] :clj [[sci.addons :as addons] [sci.impl.vars :as vars]])
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
    [sci.core :as sci]
@@ -296,3 +296,24 @@
            (sci/init
             (addons/future {}))
            "@(future (load-string \"(set! *warn-on-reflection* true)\"))")))))
+
+#?(:clj
+   (deftest mirror-host-var-test
+     (sci/mirror-host-var! sci/out #'*out*)
+     (try
+       (let [opts {:namespaces {'user {'host-println println}}
+                   :classes {'java.io.StringWriter java.io.StringWriter}}]
+         (testing "with-out-str captures println of compiled code"
+           (is (= "hi\n" (sci/eval-string "(with-out-str (host-println \"hi\"))" opts))))
+         (testing "set! of *out* sets the host *out*"
+           (is (= "hi\n" (sci/eval-string "(let [w (java.io.StringWriter.)]
+                                             (binding [*out* *out*]
+                                               (set! *out* w)
+                                               (host-println \"hi\"))
+                                             (str w))" opts))))
+         (testing "the host *out* binding ends with the sci binding"
+           (let [before *out*]
+             (sci/eval-string "(with-out-str (host-println \"hi\"))" opts)
+             (is (identical? before *out*)))))
+       (finally
+         (vswap! vars/host-vars dissoc sci/out)))))

@@ -32,9 +32,11 @@
            (throw (ex-info (str "Built-in namespace " name# " is read-only.")
                            {:ns ns-obj#})))))))
 
-(deftype Frame [bindings prev])
+(deftype Frame [bindings prev host?])
 
-(def top-frame (Frame. {} nil))
+(def top-frame (Frame. {} nil false))
+
+#?(:clj (def host-vars (volatile! {})))
 
 #?(:cljd
    (def dvals (volatile! top-frame))
@@ -89,7 +91,7 @@
   (let [^Frame f #?(:cljd @dvals
                     :clj (.get dvals)
                     :cljs @dvals)]
-    (Frame. (.-bindings f) nil)))
+    (Frame. (.-bindings f) nil false)))
 
 (defn reset-thread-binding-frame [frame]
   #?(:cljd (vreset! dvals frame)
@@ -127,19 +129,34 @@
                                                  :clj (Thread/currentThread)
                                                  :cljs nil) val*)))
                      bmap
-                     bindings)]
+                     bindings)
+        host? #?(:clj (if-let [hv (not-empty @host-vars)]
+                        (if-let [hb (reduce (fn [acc [var* val*]]
+                                              (if-let [h (get hv var*)]
+                                                (assoc acc h val*)
+                                                acc))
+                                            nil
+                                            bindings)]
+                          (do (clojure.core/push-thread-bindings hb)
+                              true)
+                          false)
+                        false)
+                 :default false)]
     #?(:cljs (bump-var-epoch!))
-    (reset-thread-binding-frame (Frame. bmap frame))))
+    (reset-thread-binding-frame (Frame. bmap frame host?))))
 
 (defn pop-thread-bindings []
   #?(:cljs (bump-var-epoch!))
   ;; type hint needed to satisfy CLJS compiler / shadow
   (if-let [f (.-prev ^Frame (get-thread-binding-frame))]
-    (if (identical? top-frame f)
-      #?(:cljd (vreset! dvals top-frame)
-         :clj (.remove dvals)
-         :cljs (vreset! dvals top-frame))
-      (reset-thread-binding-frame f))
+    (do
+      #?(:clj (when (.-host? ^Frame (get-thread-binding-frame))
+                (clojure.core/pop-thread-bindings)))
+      (if (identical? top-frame f)
+        #?(:cljd (vreset! dvals top-frame)
+           :clj (.remove dvals)
+           :cljs (vreset! dvals top-frame))
+        (reset-thread-binding-frame f)))
     (throw (new #?(:cljd Exception :clj Exception :cljs js/Error) "No frame to pop."))))
 
 (defn get-thread-bindings []

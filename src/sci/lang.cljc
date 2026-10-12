@@ -135,7 +135,10 @@
            (if (not (identical? t (Thread/currentThread)))
              (throw (IllegalStateException.
                      (format "Can't set!: %s from non-binding thread" (vars/toSymbol this))))
-             (types/setVal b v)))
+             (do (when-let [^clojure.lang.Var h (get @vars/host-vars this)]
+                   (when (.getThreadBinding h)
+                     (.set h v)))
+                 (types/setVal b v))))
          :cljs (types/setVal b v))
       #?(:cljd (if (:unrestricted sci.ctx-store/*ctx*)
                  (set! (.-root this) v)

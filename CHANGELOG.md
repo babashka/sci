@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Add `sci.core/mirror-host-var!`: `binding` and `set!` of a SCI var also bind and set a host var, JVM only
 - Clojure 1.13 map destructuring as of clojure/clojure 98d735fa: `:excess` and `:missing` directives, `:defaults` removed. Adds the `selector` macro to `clojure.core`.
 - Minimum Clojure version is `1.11.1`
 - `merge` returns the other argument unchanged if one argument is nil (Clojure 1.13)
