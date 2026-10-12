@@ -12,7 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
-- Speed up `binding` (about 2x on the JVM) and `try` without a catch (about 4x)
+- Speed up `binding` (about 4x on the JVM, 2x in native bb) and `try` without a catch (about 4x)
 - Clojure 1.13 map destructuring as of clojure/clojure 98d735fa: `:excess` and `:missing` directives, `:defaults` removed. Adds the `selector` macro to `clojure.core`.
 - Minimum Clojure version is `1.11.1`
 - `merge` returns the other argument unchanged if one argument is nil (Clojure 1.13)

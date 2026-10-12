@@ -132,6 +132,17 @@
     #?(:cljs (bump-var-epoch!))
     (reset-thread-binding-frame (Frame. bmap frame))))
 
+(defn push-thread-binding
+  "Binds var* to val* in a new frame.
+  var* must be dynamic and thread-bound."
+  [var* val*]
+  (let [^Frame frame (get-thread-binding-frame)
+        bmap (assoc (.-bindings frame) var* (TBox. #?(:cljd nil
+                                                     :clj (Thread/currentThread)
+                                                     :cljs nil) val*))]
+    #?(:cljs (bump-var-epoch!))
+    (reset-thread-binding-frame (Frame. bmap frame))))
+
 (defn pop-thread-bindings []
   #?(:cljs (bump-var-epoch!))
   ;; type hint needed to satisfy CLJS compiler / shadow

@@ -296,3 +296,10 @@
            (sci/init
             (addons/future {}))
            "@(future (load-string \"(set! *warn-on-reflection* true)\"))")))))
+
+(deftest multi-var-binding-test
+  (testing "binding evaluates every value before binding any var"
+    (is (= [2 2] (eval* "(def ^:dynamic *x* 1) (def ^:dynamic *y* 1)
+                         (binding [*x* 2 *y* (inc *x*)] [*x* *y*])"))))
+  (testing "binding a var twice keeps the last value"
+    (is (= 3 (eval* "(def ^:dynamic *x* 1) (binding [*x* 2 *x* 3] *x*)")))))
