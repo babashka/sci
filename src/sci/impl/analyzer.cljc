@@ -1813,6 +1813,50 @@
                              (pop-thread-bindings)
                              :cljs (set! utils/*top-level-location* nil)))))))))
 
+(defn- binding-macro? [f]
+  (and (utils/var? f)
+       (let [m (meta f)]
+         (and (= 'binding (:name m))
+              (identical? utils/clojure-core-ns (:ns m))))))
+
+(defn analyze-binding
+  "Returns a node for a binding form, or nil if a name does not resolve to a dynamic var."
+  [ctx expr]
+  (let [[_ bvec & body] expr]
+    (when (and (vector? bvec) (even? (count bvec)))
+      (let [vars* (mapv (fn [sym]
+                          (when (symbol? sym)
+                            (second (resolve/lookup (assoc ctx :bindings {}) sym false nil true))))
+                        (take-nth 2 bvec))]
+        (when (every? #(and (utils/var? %) (vars/dynamic? %)) vars*)
+          (run! #(vars/setThreadBound % true) vars*)
+          (let [vals (analyze-children (without-recur-target ctx) (take-nth 2 (rest bvec)))
+                body (return-do (without-recur-target ctx :try) expr body)
+                stack (utils/make-stack (meta expr) true)]
+            (if (= 1 (count vars*))
+              (let [v0 (nth vars* 0)
+                    e0 (nth vals 0)
+                    host-var #?(:clj (get (:track-host-vars ctx) v0) :default nil)]
+                (sci.impl.types/->Node
+                 (do (vars/push-thread-binding v0 (t/eval e0 ctx bindings) host-var)
+                     (try (t/eval body ctx bindings)
+                          (catch #?(:cljd Object :clj Throwable :cljs :default) e
+                            (rethrow-with-location-of-node ctx bindings e body))
+                          (finally (vars/pop-thread-bindings))))
+                 stack))
+              (sci.impl.types/->Node
+               (do (vars/push-thread-bindings
+                    (loop [m {} vs (seq vars*) es (seq vals)]
+                      (if vs
+                        (recur (assoc m (first vs) (t/eval (first es) ctx bindings))
+                               (next vs) (next es))
+                        m)))
+                   (try (t/eval body ctx bindings)
+                        (catch #?(:cljd Object :clj Throwable :cljs :default) e
+                          (rethrow-with-location-of-node ctx bindings e body))
+                        (finally (vars/pop-thread-bindings))))
+               stack))))))))
+
 (defn dispatch-special [ctx expr f top-level?]
   (case f
     do (return-do ctx expr (rest expr))
@@ -2096,7 +2140,10 @@
                       :else
                       (try
                         (if (macro? f)
-                          (let [;; Fix for #603
+                          (or
+                           (when (binding-macro? f)
+                             (analyze-binding ctx expr))
+                           (let [;; Fix for #603
                                 #?@(:cljs [f (if (utils/var? f)
                                                @f
                                                f)
@@ -2123,7 +2170,7 @@
                                                ;; interleaved analysis and eval
                                                (t/->EvalForm v)
                                                :else (analyze ctx v top-level?))]
-                            expanded)
+                            expanded))
                           (let [rest-forms #?(:cljd (desugar-named-args (rest expr))
                                               :default (rest expr))]
                            (if-let [f (:sci.impl/inlined f-meta)]

@@ -47,8 +47,9 @@
 #?(:cljd
    (def dvals (volatile! top-frame))
    :clj
-   (def ^ThreadLocal dvals (proxy [ThreadLocal] []
-                             (initialValue [] top-frame)))
+   (def ^ThreadLocal dvals (ThreadLocal/withInitial
+                            (reify java.util.function.Supplier
+                              (get [_] top-frame))))
    :cljs
    (def dvals (volatile! top-frame)))
 
@@ -149,6 +150,23 @@
                             (do (clojure.core/push-thread-bindings hb)
                                 true)
                             false)))
+                 :default false)]
+    #?(:cljs (bump-var-epoch!))
+    (reset-thread-binding-frame (Frame. bmap frame host?))))
+
+(defn push-thread-binding
+  "Binds var* to val* in a new frame.
+  var* must be dynamic and thread-bound.
+  host-var is a host var to bind to val* as well, or nil."
+  [var* val* host-var]
+  (let [^Frame frame (get-thread-binding-frame)
+        bmap (assoc (.-bindings frame) var* (TBox. #?(:cljd nil
+                                                     :clj (Thread/currentThread)
+                                                     :cljs nil) val*))
+        host? #?(:clj (if (nil? host-var)
+                        false
+                        (do (clojure.core/push-thread-bindings {host-var val*})
+                            true))
                  :default false)]
     #?(:cljs (bump-var-epoch!))
     (reset-thread-binding-frame (Frame. bmap frame host?))))
