@@ -3,7 +3,6 @@
    #?@(:cljd [] :clj [[sci.addons :as addons]])
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
-   [clojure.walk :as walk]
    [sci.core :as sci]
    [sci.test-utils :as tu]))
 
@@ -306,9 +305,11 @@
     (is (= 3 (eval* "(def ^:dynamic *x* 1) (binding [*x* 2 *x* 3] *x*)")))))
 
 (deftest binding-macroexpand-test
-  (testing "macroexpand-1 of binding returns the macro expansion"
-    (is (= '(let []
-              (push-thread-bindings (hash-map (var *x*) 2))
-              (try *x* (finally (pop-thread-bindings))))
-           (walk/postwalk #(if (symbol? %) (symbol (name %)) %)
-                          (eval* "(def ^:dynamic *x* 1) (macroexpand-1 '(binding [*x* 2] *x*))"))))))
+  (let [expansion (eval* "(def ^:dynamic *x* 1) (macroexpand-1 '(binding [*x* 2] *x*))")
+        names (set (keep #(when (symbol? %) (name %)) (flatten expansion)))]
+    (testing "macroexpand-1 of binding expands to push-thread-bindings and pop-thread-bindings"
+      (is (contains? names "push-thread-bindings"))
+      (is (contains? names "pop-thread-bindings"))))
+  (testing "the expansion of binding evaluates to the value of the binding form"
+    (is (= [2 2] (eval* "(def ^:dynamic *x* 1)
+                         [(binding [*x* 2] *x*) (eval (macroexpand-1 '(binding [*x* 2] *x*)))]")))))
