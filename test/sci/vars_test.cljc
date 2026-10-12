@@ -296,3 +296,20 @@
            (sci/init
             (addons/future {}))
            "@(future (load-string \"(set! *warn-on-reflection* true)\"))")))))
+
+(deftest multi-var-binding-test
+  (testing "binding evaluates every value before binding any var"
+    (is (= [2 2] (eval* "(def ^:dynamic *x* 1) (def ^:dynamic *y* 1)
+                         (binding [*x* 2 *y* (inc *x*)] [*x* *y*])"))))
+  (testing "binding a var twice keeps the last value"
+    (is (= 3 (eval* "(def ^:dynamic *x* 1) (binding [*x* 2 *x* 3] *x*)")))))
+
+(deftest binding-macroexpand-test
+  (let [expansion (eval* "(def ^:dynamic *x* 1) (macroexpand-1 '(binding [*x* 2] *x*))")
+        names (set (keep #(when (symbol? %) (name %)) (flatten expansion)))]
+    (testing "macroexpand-1 of binding expands to push-thread-bindings and pop-thread-bindings"
+      (is (contains? names "push-thread-bindings"))
+      (is (contains? names "pop-thread-bindings"))))
+  (testing "the expansion of binding evaluates to the value of the binding form"
+    (is (= [2 2] (eval* "(def ^:dynamic *x* 1)
+                         [(binding [*x* 2] *x*) (eval (macroexpand-1 '(binding [*x* 2] *x*)))]")))))
