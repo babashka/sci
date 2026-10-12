@@ -174,16 +174,17 @@
 (defn pop-thread-bindings []
   #?(:cljs (bump-var-epoch!))
   ;; type hint needed to satisfy CLJS compiler / shadow
-  (if-let [f (.-prev ^Frame (get-thread-binding-frame))]
-    (do
-      #?(:clj (when (.-host? ^Frame (get-thread-binding-frame))
-                (clojure.core/pop-thread-bindings)))
-      (if (identical? top-frame f)
-        #?(:cljd (vreset! dvals top-frame)
-           :clj (.remove dvals)
-           :cljs (vreset! dvals top-frame))
-        (reset-thread-binding-frame f)))
-    (throw (new #?(:cljd Exception :clj Exception :cljs js/Error) "No frame to pop."))))
+  (let [^Frame frame (get-thread-binding-frame)]
+    (if-let [f (.-prev frame)]
+      (do
+        #?(:clj (when (.-host? frame)
+                  (clojure.core/pop-thread-bindings)))
+        (if (identical? top-frame f)
+          #?(:cljd (vreset! dvals top-frame)
+             :clj (.remove dvals)
+             :cljs (vreset! dvals top-frame))
+          (reset-thread-binding-frame f)))
+      (throw (new #?(:cljd Exception :clj Exception :cljs js/Error) "No frame to pop.")))))
 
 (defn get-thread-bindings []
   (let [;; type hint added to prevent shadow-cljs warning, although fn has return tag
