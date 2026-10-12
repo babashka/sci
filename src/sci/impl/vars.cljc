@@ -36,12 +36,12 @@
 
 (def top-frame (Frame. {} nil false))
 
-#?(:clj (def tracking-host-vars (volatile! false)))
+#?(:clj (def tracked-host-vars (volatile! #{})))
 
 #?(:clj
    (defn track-host-vars! [m]
      (when (seq m)
-       (vreset! tracking-host-vars true)
+       (vswap! tracked-host-vars into (keys m))
        m)))
 
 #?(:cljd
@@ -136,18 +136,19 @@
                                                  :cljs nil) val*)))
                      bmap
                      bindings)
-        host? #?(:clj (if-let [hv (and @tracking-host-vars
-                                       (:track-host-vars sci.ctx-store/*ctx*))]
-                        (if-let [hb (reduce (fn [acc [var* val*]]
-                                              (if-let [h (get hv var*)]
-                                                (assoc acc h val*)
-                                                acc))
-                                            nil
-                                            bindings)]
-                          (do (clojure.core/push-thread-bindings hb)
-                              true)
-                          false)
-                        false)
+        host? #?(:clj (let [tracked @tracked-host-vars]
+                        (if (zero? (count tracked))
+                          false
+                          (if-let [hb (reduce-kv (fn [acc var* val*]
+                                                   (if-let [h (and (contains? tracked var*)
+                                                                   (get (:track-host-vars sci.ctx-store/*ctx*) var*))]
+                                                     (assoc acc h val*)
+                                                     acc))
+                                                 nil
+                                                 bindings)]
+                            (do (clojure.core/push-thread-bindings hb)
+                                true)
+                            false)))
                  :default false)]
     #?(:cljs (bump-var-epoch!))
     (reset-thread-binding-frame (Frame. bmap frame host?))))

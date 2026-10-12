@@ -135,7 +135,7 @@
            (if (not (identical? t (Thread/currentThread)))
              (throw (IllegalStateException.
                      (format "Can't set!: %s from non-binding thread" (vars/toSymbol this))))
-             (do (when-let [^clojure.lang.Var h (and @vars/tracking-host-vars
+             (do (when-let [^clojure.lang.Var h (and (contains? @vars/tracked-host-vars this)
                                                       (get (:track-host-vars sci.ctx-store/*ctx*) this))]
                    (when (.getThreadBinding h)
                      (.set h v)))
