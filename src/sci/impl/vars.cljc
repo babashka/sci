@@ -121,7 +121,24 @@
   DynVar
   (dynamic? [_] false))
 
-(defn push-thread-bindings [bindings]
+#?(:clj
+   (defn host-var
+     "Returns the host var tracked for var* in the current context, or nil."
+     [var*]
+     (when (contains? @tracked-host-vars var*)
+       (get (:track-host-vars sci.ctx-store/*ctx*) var*))))
+
+#?(:clj
+   (defn set-host-var!
+     "Sets host-var to v if it has a thread binding."
+     [^clojure.lang.Var host-var v]
+     (when (.getThreadBinding host-var)
+       (.set host-var v))))
+
+(defn push-frame
+  "Pushes a frame with bindings, a map of vars to values.
+  host-bindings is a map of host vars to values to push as well, or nil."
+  [bindings host-bindings]
   (let [^Frame frame (get-thread-binding-frame)
         bmap (.-bindings frame)
         bmap (reduce (fn [acc [var* val*]]
@@ -137,22 +154,24 @@
                                                  :cljs nil) val*)))
                      bmap
                      bindings)
-        host? #?(:clj (let [tracked @tracked-host-vars]
-                        (if (zero? (count tracked))
-                          false
-                          (if-let [hb (reduce-kv (fn [acc var* val*]
-                                                   (if-let [h (and (contains? tracked var*)
-                                                                   (get (:track-host-vars sci.ctx-store/*ctx*) var*))]
-                                                     (assoc acc h val*)
-                                                     acc))
-                                                 nil
-                                                 bindings)]
-                            (do (clojure.core/push-thread-bindings hb)
-                                true)
-                            false)))
+        host? #?(:clj (if (nil? host-bindings)
+                        false
+                        (do (clojure.core/push-thread-bindings host-bindings)
+                            true))
                  :default false)]
     #?(:cljs (bump-var-epoch!))
     (reset-thread-binding-frame (Frame. bmap frame host?))))
+
+(defn push-thread-bindings [bindings]
+  (push-frame bindings
+              #?(:clj (when-not (zero? (count @tracked-host-vars))
+                        (reduce-kv (fn [acc var* val*]
+                                     (if-let [h (host-var var*)]
+                                       (assoc acc h val*)
+                                       acc))
+                                   nil
+                                   bindings))
+                 :default nil)))
 
 (defn push-thread-binding
   "Binds var* to val* in a new frame.

@@ -1531,10 +1531,17 @@
           obj (resolve/resolve-symbol ctx obj)
           v (analyze ctx v)]
       (cond (utils/var? obj)
-            (sci.impl.types/->Node
-             (let [v (t/eval v ctx bindings)]
-               (t/setVal obj v))
-             nil)
+            (if-let [h #?(:clj (get (:track-host-vars ctx) obj) :default nil)]
+              (sci.impl.types/->Node
+               (let [v (t/eval v ctx bindings)
+                     ret (t/setVal obj v)]
+                 #?(:clj (vars/set-host-var! h v))
+                 ret)
+               nil)
+              (sci.impl.types/->Node
+               (let [v (t/eval v ctx bindings)]
+                 (t/setVal obj v))
+               nil))
             (:mutable (meta obj))
             (let [instance (resolve/resolve-symbol ctx '__sci_this)
                   mutator (get (:local->mutator ctx) sym)]
@@ -1832,11 +1839,13 @@
           (run! #(vars/setThreadBound % true) vars*)
           (let [vals (analyze-children (without-recur-target ctx) (take-nth 2 (rest bvec)))
                 body (return-do (without-recur-target ctx :try) expr body)
-                stack (utils/make-stack (meta expr) true)]
+                stack (utils/make-stack (meta expr) true)
+                host-vars #?(:clj (mapv #(get (:track-host-vars ctx) %) vars*)
+                             :default (mapv (constantly nil) vars*))]
             (if (= 1 (count vars*))
               (let [v0 (nth vars* 0)
                     e0 (nth vals 0)
-                    host-var #?(:clj (get (:track-host-vars ctx) v0) :default nil)]
+                    host-var (nth host-vars 0)]
                 (sci.impl.types/->Node
                  (do (vars/push-thread-binding v0 (t/eval e0 ctx bindings) host-var)
                      (try (t/eval body ctx bindings)
@@ -1845,12 +1854,14 @@
                           (finally (vars/pop-thread-bindings))))
                  stack))
               (sci.impl.types/->Node
-               (do (vars/push-thread-bindings
-                    (loop [m {} vs (seq vars*) es (seq vals)]
-                      (if vs
-                        (recur (assoc m (first vs) (t/eval (first es) ctx bindings))
-                               (next vs) (next es))
-                        m)))
+               (do (loop [m {} hm nil vs (seq vars*) hs (seq host-vars) es (seq vals)]
+                     (if vs
+                       (let [v (t/eval (first es) ctx bindings)
+                             h (first hs)]
+                         (recur (assoc m (first vs) v)
+                                (if (nil? h) hm (assoc hm h v))
+                                (next vs) (next hs) (next es)))
+                       (vars/push-frame m hm)))
                    (try (t/eval body ctx bindings)
                         (catch #?(:cljd Object :clj Throwable :cljs :default) e
                           (rethrow-with-location-of-node ctx bindings e body))

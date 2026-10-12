@@ -59,7 +59,10 @@
 (defn set!
   "Establish thread local binding of dynamic var"
   [dynamic-var v]
-  (t/setVal dynamic-var v))
+  (let [ret (t/setVal dynamic-var v)]
+    #?(:clj (when-let [h (vars/host-var dynamic-var)]
+              (vars/set-host-var! h v)))
+    ret))
 
 (defn new-macro-var
   "Same as new-var but adds :macro true to meta as well

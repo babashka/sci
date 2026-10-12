@@ -310,6 +310,12 @@
                                              (set! *out* w)
                                              (host-println \"hi\"))
                                            (str w))" opts))))
+       (testing "binding *out* along with another var binds the host *out*"
+         (is (= "hi\n" (sci/eval-string "(def ^:dynamic *x* 1)
+                                         (let [w (java.io.StringWriter.)]
+                                           (binding [*x* 2 *out* w]
+                                             (host-println \"hi\"))
+                                           (str w))" opts))))
        (testing "the host *out* binding ends with the sci binding"
          (let [before *out*]
            (sci/eval-string "(with-out-str (host-println \"hi\"))" opts)
