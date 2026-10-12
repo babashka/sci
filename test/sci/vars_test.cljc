@@ -297,7 +297,7 @@
             (addons/future {}))
            "@(future (load-string \"(set! *warn-on-reflection* true)\"))")))))
 
-#?(:clj
+#?(:cljd nil :clj
    (deftest track-host-vars-test
      (let [opts {:namespaces {'user {'host-println println}}
                  :classes {'java.io.StringWriter java.io.StringWriter}
