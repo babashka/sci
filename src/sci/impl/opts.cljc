@@ -5,6 +5,7 @@
    [sci.impl.namespaces :as namespaces]
    [sci.impl.types]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
+   #?(:clj [sci.impl.vars :as vars])
    #?(:cljd [sci.lang :as lang] :default [sci.lang]))
   #?@(:cljd [] :clj [(:import
                       [sci.impl.types ICustomType])]))
@@ -214,11 +215,12 @@
                         params
                         parents
                         closure-bindings
-                        fn-expr]))
+                        fn-expr
+                        track-host-vars]))
 
 (defn ->ctx [bindings env features readers check-permissions? & {:keys [interrupt-fn]}]
   #?(:clj (->Ctx bindings env features readers false check-permissions? interrupt-fn
-                 nil nil nil nil nil nil)
+                 nil nil nil nil nil nil nil)
      :default {:bindings bindings
                :env env
                :features features
@@ -251,6 +253,7 @@
            unrestricted
            #?(:cljs async-load-fn)
            #?(:cljs js-libs)
+           #?(:clj track-host-vars)
            ns-aliases]}]
   (let [env (or env (atom {}))
         imports (merge default-imports imports)
@@ -269,7 +272,8 @@
                    :proxy-fn proxy-fn
                    :deftype-fn deftype-fn
                    :unrestricted unrestricted
-                   #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]))]
+                   #?@(:clj [:main-thread-id (.getId (Thread/currentThread))
+                             :track-host-vars (vars/track-host-vars! track-host-vars)]))]
     ctx))
 
 (defn merge-opts [ctx opts]
@@ -299,6 +303,9 @@
         _ (init-env! !env aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
         interrupt-fn (if (contains? opts :interrupt-fn) (:interrupt-fn opts) (:interrupt-fn ctx))
         unrestricted (if (contains? opts :unrestricted) (:unrestricted opts) (:unrestricted ctx))
+        #?@(:clj [track-host-vars (if (contains? opts :track-host-vars)
+                                    (vars/track-host-vars! (:track-host-vars opts))
+                                    (:track-host-vars ctx))])
         ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny)
                           :interrupt-fn interrupt-fn)
                    :allow (when allow (process-permissions (:allow ctx) allow))
@@ -306,5 +313,6 @@
                    :reify-fn reify-fn
                    :deftype-fn deftype-fn
                    :unrestricted unrestricted
-                   :main-thread-id (:main-thread-id ctx))]
+                   :main-thread-id (:main-thread-id ctx)
+                   #?@(:clj [:track-host-vars track-host-vars]))]
     ctx))

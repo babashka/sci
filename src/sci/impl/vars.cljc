@@ -36,7 +36,13 @@
 
 (def top-frame (Frame. {} nil false))
 
-#?(:clj (def host-vars (volatile! {})))
+#?(:clj (def tracking-host-vars (volatile! false)))
+
+#?(:clj
+   (defn track-host-vars! [m]
+     (when (seq m)
+       (vreset! tracking-host-vars true)
+       m)))
 
 #?(:cljd
    (def dvals (volatile! top-frame))
@@ -130,7 +136,8 @@
                                                  :cljs nil) val*)))
                      bmap
                      bindings)
-        host? #?(:clj (if-let [hv (not-empty @host-vars)]
+        host? #?(:clj (if-let [hv (and @tracking-host-vars
+                                       (:track-host-vars sci.ctx-store/*ctx*))]
                         (if-let [hb (reduce (fn [acc [var* val*]]
                                               (if-let [h (get hv var*)]
                                                 (assoc acc h val*)

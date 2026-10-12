@@ -61,13 +61,6 @@
   [dynamic-var v]
   (t/setVal dynamic-var v))
 
-#?(:clj
-   (defn mirror-host-var!
-     "Makes binding and set! of sci-var also bind and set host-var, a dynamic Clojure var.
-  Applies to all contexts."
-     [sci-var host-var]
-     (vswap! vars/host-vars assoc sci-var host-var)))
-
 (defn new-macro-var
   "Same as new-var but adds :macro true to meta as well
   as :sci/macro true to meta of the fn itself."

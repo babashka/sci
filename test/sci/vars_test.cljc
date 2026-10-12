@@ -1,6 +1,6 @@
 (ns sci.vars-test
   (:require
-   #?@(:cljd [] :clj [[sci.addons :as addons] [sci.impl.vars :as vars]])
+   #?@(:cljd [] :clj [[sci.addons :as addons]])
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
    [sci.core :as sci]
@@ -298,22 +298,26 @@
            "@(future (load-string \"(set! *warn-on-reflection* true)\"))")))))
 
 #?(:clj
-   (deftest mirror-host-var-test
-     (sci/mirror-host-var! sci/out #'*out*)
-     (try
-       (let [opts {:namespaces {'user {'host-println println}}
-                   :classes {'java.io.StringWriter java.io.StringWriter}}]
-         (testing "with-out-str captures println of compiled code"
-           (is (= "hi\n" (sci/eval-string "(with-out-str (host-println \"hi\"))" opts))))
-         (testing "set! of *out* sets the host *out*"
-           (is (= "hi\n" (sci/eval-string "(let [w (java.io.StringWriter.)]
-                                             (binding [*out* *out*]
-                                               (set! *out* w)
-                                               (host-println \"hi\"))
-                                             (str w))" opts))))
-         (testing "the host *out* binding ends with the sci binding"
-           (let [before *out*]
-             (sci/eval-string "(with-out-str (host-println \"hi\"))" opts)
-             (is (identical? before *out*)))))
-       (finally
-         (vswap! vars/host-vars dissoc sci/out)))))
+   (deftest track-host-vars-test
+     (let [opts {:namespaces {'user {'host-println println}}
+                 :classes {'java.io.StringWriter java.io.StringWriter}
+                 :track-host-vars {sci/out #'*out*}}]
+       (testing "with-out-str captures println of compiled code"
+         (is (= "hi\n" (sci/eval-string "(with-out-str (host-println \"hi\"))" opts))))
+       (testing "set! of *out* sets the host *out*"
+         (is (= "hi\n" (sci/eval-string "(let [w (java.io.StringWriter.)]
+                                           (binding [*out* *out*]
+                                             (set! *out* w)
+                                             (host-println \"hi\"))
+                                           (str w))" opts))))
+       (testing "the host *out* binding ends with the sci binding"
+         (let [before *out*]
+           (sci/eval-string "(with-out-str (host-println \"hi\"))" opts)
+           (is (identical? before *out*))))
+       (testing "without :track-host-vars with-out-str misses println of compiled code"
+         (let [ret (volatile! nil)
+               host-out (with-out-str
+                          (vreset! ret (sci/eval-string "(with-out-str (host-println \"hi\"))"
+                                                        (dissoc opts :track-host-vars))))]
+           (is (= "" @ret))
+           (is (= "hi\n" host-out)))))))
