@@ -112,15 +112,21 @@
       r
       (rethrow-with-location-of-node ctx bindings e body))))
 
+(defn- eval-in-try [ctx bindings body catches sci-error]
+  (let [in-try (or sci-error
+                   ;; try/finally without catch
+                   (seq catches)
+                   utils/*in-try*)]
+    (if (identical? in-try utils/*in-try*)
+      (types/eval body ctx bindings)
+      (binding [utils/*in-try* in-try]
+        (types/eval body ctx bindings)))))
+
 (defn- eval-try-body
   "Evaluates the try body and applies the catch clauses. No `finally`."
   [ctx bindings body catches sci-error]
   (try
-    (binding [utils/*in-try* (or sci-error
-                                 ;; try/finally without catch
-                                 (seq catches)
-                                 utils/*in-try*)]
-      (types/eval body ctx bindings))
+    (eval-in-try ctx bindings body catches sci-error)
     (catch #?(:cljd Object :clj Throwable :cljs :default) e
       (eval-catches ctx bindings body catches sci-error e))))
 
@@ -132,10 +138,7 @@
   interrupt-fn feature pay no overhead."
   [ctx bindings body catches finally sci-error]
   (try
-    (binding [utils/*in-try* (or sci-error
-                                 (seq catches)
-                                 utils/*in-try*)]
-      (types/eval body ctx bindings))
+    (eval-in-try ctx bindings body catches sci-error)
     (catch #?(:cljd Object :clj Throwable :cljs :default) e
       (eval-catches ctx bindings body catches sci-error e))
     (finally

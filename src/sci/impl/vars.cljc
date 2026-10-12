@@ -39,8 +39,9 @@
 #?(:cljd
    (def dvals (volatile! top-frame))
    :clj
-   (def ^ThreadLocal dvals (proxy [ThreadLocal] []
-                             (initialValue [] top-frame)))
+   (def ^ThreadLocal dvals (ThreadLocal/withInitial
+                            (reify java.util.function.Supplier
+                              (get [_] top-frame))))
    :cljs
    (def dvals (volatile! top-frame)))
 
