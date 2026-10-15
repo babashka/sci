@@ -38,7 +38,11 @@ clojure.core/inc
     (is (= (str/trim
             "-------------------------\nfoo\n  foodoc\n")
            (str/trim (sci/with-out-str (eval* "(ns foo \"foodoc\") (clojure.repl/doc foo)")))))
-    (is (empty? (sci/with-out-str (tu/eval* "(clojure.repl/doc x)" {:bindings {'x 1}}))))))
+    (is (empty? (sci/with-out-str (tu/eval* "(clojure.repl/doc x)" {:bindings {'x 1}}))))
+    (is (str/includes? (sci/with-out-str (eval* "(clojure.repl/doc &)")) "clojure.core/fn"))
+    (let [opts {:namespaces {'clojure.repl {'special-doc (fn [sym] (when (= 'try sym) {:name 'try :doc "trydoc" :special-form true}))}}}]
+      (is (str/includes? (sci/with-out-str (tu/eval* "(clojure.repl/doc catch)" opts)) "trydoc"))
+      (is (str/includes? (sci/with-out-str (tu/eval* "(clojure.repl/doc finally)" opts)) "trydoc")))))
 
 (deftest repl-find-doc-test
   (when-not tu/native?
