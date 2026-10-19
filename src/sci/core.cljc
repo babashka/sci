@@ -16,6 +16,7 @@
    [sci.impl.callstack :as cs]
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
+   [sci.impl.load :as load]
    [sci.impl.macros :as macros]
    [sci.impl.namespaces :as namespaces]
    [sci.impl.opts :as opts]
@@ -653,6 +654,8 @@
   `ctx`. Returns mutated context."
   [ctx ns-name ns-map]
   (swap! (:env ctx) update-in [:namespaces ns-name] merge ns-map)
+  ;; a require of an added ns does not load it from load-fn
+  (load/add-loaded-lib @(:env ctx) ns-name)
   ctx)
 
 (defn find-ns

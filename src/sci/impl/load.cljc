@@ -178,7 +178,17 @@
           (let [{:keys [:reload :reload-all]} opts
                 namespaces (get env :namespaces)
                 reload* (or reload reload-all (:reload-all ctx))]
-            (if-let [the-loaded-ns (when-not reload* (get namespaces lib))]
+            (if-let [the-loaded-ns (when-not reload*
+                                     (when-let [the-ns (get namespaces lib)]
+                                       ;; a ns that exists but was not loaded, e.g. by create-ns, is loaded by load-fn
+                                       (when (or (not (:load-fn env))
+                                                 (= lib cnn)
+                                                 (contains? @(loaded-libs env) lib)
+                                                 (when-let [loading (:loading ctx)]
+                                                   (nat-int? #?(:cljd (or (first (keep-indexed #(when (= %2 lib) %1) loading)) -1)
+                                                                :clj (.indexOf ^clojure.lang.PersistentVector loading lib)
+                                                                :cljs (.indexOf loading lib)))))
+                                         the-ns)))]
               (let [loading (:loading ctx)]
                 (if (and loading
                          ;; self-require (e.g. a ns requiring its own macros via
@@ -233,9 +243,9 @@
                                         (handle-require-libspec-env ctx env cnn
                                                                     the-loaded-ns
                                                                     lib opts))))))
-                    (or (when reload*
-                          (when-let [the-loaded-ns (get namespaces lib)]
-                            (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
+                    (or (when-let [the-loaded-ns (get namespaces lib)]
+                          ;; on reload, or for a ns load-fn has no source for
+                          (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts)))
                         (throw (new #?(:cljs js/Error :default Exception)
                                     (str "Could not find namespace: " lib "."))))))
                 (throw (new #?(:cljs js/Error :default Exception)

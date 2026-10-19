@@ -313,6 +313,27 @@ bar/bar"}
                                         (case namespace
                                           foo {:source "(ns foo (:require foo)) (def x 1)"}))}))))
 
+(deftest require-created-ns-test
+  (let [load-fn (fn [{:keys [:namespace]}]
+                  (case namespace
+                    foo {:source "(ns foo) (defn f [] :loaded)"}
+                    nil))]
+    (testing "require loads a namespace created with create-ns"
+      (is (= :loaded (sci/eval-string "(intern (create-ns 'foo) 'f) (require 'foo) (foo/f)"
+                                      {:load-fn load-fn}))))
+    (testing "require uses a created namespace if load-fn has no source for it"
+      (is (= 1 (sci/eval-string "(intern (create-ns 'bar) 'x 1) (require 'bar) bar/x"
+                                {:load-fn load-fn}))))
+    (testing "require uses a created namespace without load-fn"
+      (is (= 1 (sci/eval-string "(intern (create-ns 'bar) 'x 1) (require 'bar) bar/x"))))
+    (testing "require does not call load-fn for a loaded namespace"
+      (is (= 1 (sci/eval-string "(ns foo) (def x 1) (ns user) (require 'foo) foo/x"
+                                {:load-fn (fn [_] (throw (ex-info "load-fn called" {})))}))))
+    (testing "require does not call load-fn for a namespace added with add-namespace!"
+      (let [ctx (sci/init {:load-fn (fn [_] (throw (ex-info "load-fn called" {})))})]
+        (sci/add-namespace! ctx 'baz {'x 1})
+        (is (= 1 (sci/eval-string* ctx "(require 'baz) baz/x")))))))
+
 (deftest as-alias-test
   (is (= :dude/bar (sci/eval-string "(ns my-ns (:require [dude :as-alias foo])) ::foo/bar")))
   (is (= :dude/bar (sci/eval-string "(require '[dude :as-alias foo]) ::foo/bar"))))
