@@ -329,6 +329,10 @@ bar/bar"}
     (testing "require does not call load-fn for a loaded namespace"
       (is (= 1 (sci/eval-string "(ns foo) (def x 1) (ns user) (require 'foo) foo/x"
                                 {:load-fn (fn [_] (throw (ex-info "load-fn called" {})))}))))
+    (testing "require does not call load-fn for a configured namespace"
+      (is (= 1 (sci/eval-string "(require 'baz) baz/x"
+                                {:namespaces {'baz {'x 1}}
+                                 :load-fn (fn [_] (throw (ex-info "load-fn called" {})))}))))
     (testing "require does not call load-fn for a namespace added with add-namespace!"
       (let [ctx (sci/init {:load-fn (fn [_] (throw (ex-info "load-fn called" {})))})]
         (sci/add-namespace! ctx 'baz {'x 1})

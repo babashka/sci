@@ -12,8 +12,6 @@
 #?(:clj
    (defrecord Env [namespaces imports load-fn]))
 
-(def namespace-syms (keys namespaces/namespaces))
-
 (defn init-env! [env aliases namespaces classes raw-classes imports
                  load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases]
   (swap! env (fn [env]
@@ -35,9 +33,8 @@
                                                 :default ['global-hierarchy
                                                           (utils/new-var 'global-hierarchy (make-hierarchy)
                                                                          {:ns utils/clojure-core-ns})])
-                                            '*loaded-libs* (namespaces/loaded-libs**
-                                                            (concat (keys env-nss)
-                                                                    namespace-syms))))
+                                            ;; the env's, the default and the configured namespaces
+                                            '*loaded-libs* (namespaces/loaded-libs** (keys namespaces))))
                      imports (if-let [env-imports (:imports env)]
                                (merge env-imports imports)
                                imports)
