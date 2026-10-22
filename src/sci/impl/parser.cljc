@@ -167,15 +167,17 @@
   [r edamame-opts]
   (try (let [ir? (rt/indexing-reader? r)
              ;; a top-level symbol gets the position before the form
-             _ (when ir? (edamame-impl/skip-whitespace nil r))
-             line (when ir? (get-line-number r))
-             column (when ir? (get-column-number r))
-             v (edamame/parse-next r edamame-opts)]
-         (if (utils/kw-identical? v :edamame.core/eof)
+             ws (when ir? (edamame-impl/skip-whitespace nil r))]
+         (if (and ir? (nil? ws))
            eof
-           (if (and ir? (symbol? v))
-             (vary-meta v assoc :line line :column column)
-             v)))
+           (let [line (when ir? (get-line-number r))
+                 column (when ir? (get-column-number r))
+                 v (edamame/parse-next r edamame-opts)]
+             (if (utils/kw-identical? v :edamame.core/eof)
+               eof
+               (if (and ir? (symbol? v))
+                 (vary-meta v assoc :line line :column column)
+                 v)))))
        (catch #?(:cljd cljd.core/ExceptionInfo
                  :clj clojure.lang.ExceptionInfo
                  :cljs cljs.core/ExceptionInfo) e

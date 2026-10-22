@@ -148,6 +148,23 @@ form
                 "(read (java.io.PushbackReader. (java.io.StringReader. \"\")))"
                 opts)))))))
 
+#?(:clj
+   (deftest read-eof-reads-stream-once-test
+     (let [reads (atom 0)
+           stream (proxy [java.io.Reader] []
+                    (read ([] (swap! reads inc) -1)
+                      ([_ _ _] (swap! reads inc) -1))
+                    (close []))]
+       (testing "read at the end of a LineNumberingPushbackReader reads the stream once"
+         (is (= :eof (sci/eval-string "(read r false :eof)"
+                                      {:bindings {'r (clojure.lang.LineNumberingPushbackReader. stream)}})))
+         (is (= 1 @reads)))
+       (reset! reads 0)
+       (testing "read at the end of a PushbackReader reads the stream once"
+         (is (= :eof (sci/eval-string "(read r false :eof)"
+                                      {:bindings {'r (java.io.PushbackReader. stream)}})))
+         (is (= 1 @reads))))))
+
 #?(:clj (deftest suppress-read-test
           (sci/eval-string
            "(tagged-literal? (binding [*suppress-read* true] (read-string \"#foo 1\")))")))

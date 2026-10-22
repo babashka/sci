@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- `read` at the end of a `LineNumberingPushbackReader` reads the underlying stream once
 - `clojure.repl/doc` on `&`, `catch` and `finally` prints the docs of `fn` and `try`
 - Speed up `binding` (about 4x on the JVM, 2x in native bb) and `try` without a catch (about 4x)
 - Clojure 1.13 map destructuring as of clojure/clojure 98d735fa: `:excess` and `:missing` directives, `:defaults` removed. Adds the `selector` macro to `clojure.core`.
