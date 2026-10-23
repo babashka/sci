@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Speed up `try` with `finally` if `:interrupt-fn` is set (about 15% in a native image)
 - Copy `:added` and `:deprecated` into the metadata of built-in vars
 - `clojure.repl/print-doc` is a private var, so `ns-interns` of `clojure.repl` returns only vars
 - `read` at the end of a `LineNumberingPushbackReader` reads the underlying stream once
