@@ -1950,22 +1950,35 @@
                   ([a b c d & more]
                    (interop/invoke-constructor-value clazz cache (into-array Object (list* a b c d more)))))
                 stack))
-             :else (let [cache (volatile! nil)]
-                     (sci.impl.types/->Node
-                      (fn
-                        ([]
-                         (interop/invoke-static-value ctx clazz meth cache (object-array 0)))
-                        ([a]
-                         (interop/invoke-static-value ctx clazz meth cache (doto (object-array 1) (aset 0 a))))
-                        ([a b]
-                         (interop/invoke-static-value ctx clazz meth cache (doto (object-array 2) (aset 0 a) (aset 1 b))))
-                        ([a b c]
-                         (interop/invoke-static-value ctx clazz meth cache (doto (object-array 3) (aset 0 a) (aset 1 b) (aset 2 c))))
-                        ([a b c d]
-                         (interop/invoke-static-value ctx clazz meth cache (doto (object-array 4) (aset 0 a) (aset 1 b) (aset 2 c) (aset 3 d))))
-                        ([a b c d & more]
-                         (interop/invoke-static-value ctx clazz meth cache (into-array Object (list* a b c d more)))))
-                      stack))))))
+             :else (let [cache (volatile! nil)
+                         ;; a static method as a value obeys :static-methods
+                         ;; config like a direct call does
+                         class-sym (symbol (.getName clazz))
+                         class->opts (some-> ctx :env deref :class->opts)
+                         override (some-> class->opts :static-methods
+                                          (get class-sym) (get (symbol meth)))]
+                     (case (interop/member-disposition override (get class->opts class-sym) :static-methods)
+                       :override (sci.impl.types/->Node
+                                  (fn [& args] (apply override clazz args))
+                                  stack)
+                       :deny (utils/throw-error-with-location
+                              (str "Method " meth " on " class-sym " not allowed!") expr)
+                       :reflect
+                       (sci.impl.types/->Node
+                        (fn
+                          ([]
+                           (interop/invoke-static-value ctx clazz meth cache (object-array 0)))
+                          ([a]
+                           (interop/invoke-static-value ctx clazz meth cache (doto (object-array 1) (aset 0 a))))
+                          ([a b]
+                           (interop/invoke-static-value ctx clazz meth cache (doto (object-array 2) (aset 0 a) (aset 1 b))))
+                          ([a b c]
+                           (interop/invoke-static-value ctx clazz meth cache (doto (object-array 3) (aset 0 a) (aset 1 b) (aset 2 c))))
+                          ([a b c d]
+                           (interop/invoke-static-value ctx clazz meth cache (doto (object-array 4) (aset 0 a) (aset 1 b) (aset 2 c) (aset 3 d))))
+                          ([a b c d & more]
+                           (interop/invoke-static-value ctx clazz meth cache (into-array Object (list* a b c d more)))))
+                        stack)))))))
 
 #?(:cljd
    (defn- named-arg-sym? [x]
