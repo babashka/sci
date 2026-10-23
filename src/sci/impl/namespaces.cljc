@@ -2347,7 +2347,7 @@
    {:obj clojure-repl-namespace
     'dir-fn (new-var 'dir-fn dir-fn clojure-repl-namespace)
     'dir (macrofy 'dir dir clojure-repl-namespace)
-    'print-doc (with-meta print-doc {:private true})
+    'print-doc (new-var 'print-doc print-doc clojure-repl-namespace {:private true})
     'doc (macrofy 'doc doc clojure-repl-namespace)
     'find-doc (new-var 'find-doc find-doc clojure-repl-namespace)
     'apropos (new-var 'apropos apropos clojure-repl-namespace)
