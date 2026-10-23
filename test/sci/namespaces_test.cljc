@@ -179,6 +179,10 @@
   (testing "See issue 519, 520, 523"
     (is (eval* "(require '[clojure.string :refer [includes?]]) (nil? (get (ns-publics *ns*) :refer))"))))
 
+(deftest ns-interns-vars-test
+  (testing "ns-interns of clojure.repl returns only vars"
+    (is (eval* "(require 'clojure.repl) (every? var? (vals (ns-interns 'clojure.repl)))"))))
+
 (deftest ns-refers-test
   (is (eval* "(some? (get (ns-refers *ns*) 'inc))"))
   (is (eval* "(def x 1) (nil? (get (ns-refers *ns*) 'x))"))
