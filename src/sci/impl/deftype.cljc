@@ -2,11 +2,13 @@
   {:no-doc true}
   (:refer-clojure :exclude [deftype])
   (:require
+   [sci.fork :as fork]
    [sci.ctx-store :as store]
    #?(:cljd [sci.impl.multimethods :as mm])
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]
+   [sci.impl.world :as world]
    [sci.lang :as lang]))
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
@@ -60,12 +62,15 @@
 (defprotocol SciPrintMethod
   (-sci-print-method [x w]))
 
+#?(:cljs (declare fork-sci-type))
+
 (clojure.core/deftype SciType
     [rec-name
      type
      type-meta #?(:cljd ^:mutable ext-map
                   :clj ^:volatile-mutable ext-map
-                  :cljs ^:mutable ext-map)]
+                  :cljs ^:mutable ext-map)
+     home registry value-slot]
   Object
   (toString [this]
     (to-string this))
@@ -78,9 +83,18 @@
   sci.impl.types/SciTypeInstance
   (-get-type [_]
     type)
-  (-mutate [_ k v]
-    (set! ext-map (assoc ext-map k v))
+  (-mutate [this k v]
+    (if home
+      (world/managed-assoc! home registry value-slot k v)
+      (set! ext-map (assoc ext-map k v)))
     v)
+
+  fork/Forkable
+  (fork-value [this]
+    #?(:cljs (fork-sci-type this)
+       :default (if home
+                  this
+                  (SciType. rec-name type type-meta ext-map nil nil nil))))
 
   #?@(:cljd [IFn
              (-invoke [this] (types/sci-invoke this))
@@ -176,7 +190,10 @@
                       (types/sci-invoke this a b c d e f g h i j k l m n o p q r s t))])
 
   types/IBox
-  (getVal [_] ext-map)
+  (getVal [_]
+    (if home
+      (world/managed-value home registry value-slot)
+      ext-map))
 
   #?@(:cljd [types/ICustomType]
       :clj [sci.impl.types.ICustomType]
@@ -184,7 +201,20 @@
   (getMethods [_] nil)
   (getInterfaces [_] nil)
   (getProtocols [_] nil)
-  (getFields [_] ext-map))
+  (getFields [this] (types/getVal this)))
+
+#?(:cljs
+   (defn fork-sci-type [^SciType this]
+     (let [type (.-type this)
+           proto (if (instance? lang/Type type)
+                   (:sci.impl/js-prototype (types/getVal type))
+                   (js/Object.getPrototypeOf this))
+           obj (js/Object.create proto)]
+       (.call SciType obj
+              (.-rec-name this) type (.-type-meta this)
+              (.-ext-map this) (.-home this) (.-registry this)
+              (.-value-slot this))
+       obj)))
 
 #?(:cljs
    (defn new-js-prototype
@@ -193,6 +223,17 @@
   other sci types."
      ([] (new-js-prototype SciType))
      ([base-class] (js/Object.create (.-prototype base-class)))))
+
+#?(:cljs
+   (defn fork-type-data
+     "Clone a type's mutable JS prototype for a child SCI world."
+     [data]
+     (if-let [source (:sci.impl/js-prototype data)]
+       (let [target (js/Object.create (js/Object.getPrototypeOf source))]
+         (js/Object.defineProperties
+          target (js/Object.getOwnPropertyDescriptors source))
+         (assoc data :sci.impl/js-prototype target))
+       data)))
 
 #?(:cljs
    (defn -install-field-accessors!
@@ -262,14 +303,37 @@
      [t proto-map impls]
      (-install-native-protocol-on! (ensure-js-prototype t) proto-map impls)))
 
+(defn- mutable-type? [type]
+  (and (utils/sci-type? type)
+       (some (fn [field]
+               (let [m (meta field)]
+                 (or (:volatile-mutable m)
+                     (:unsynchronized-mutable m))))
+             (:sci.impl/fields (types/getVal type)))))
+
 (defn ->type-impl [rec-name type type-meta m]
-  #?(:cljs (if-let [proto (when (instance? lang/Type type)
-                            (:sci.impl/js-prototype (types/getVal type)))]
-             (let [obj (js/Object.create proto)]
-               (.call SciType obj rec-name type type-meta m)
-               obj)
-             (SciType. rec-name type type-meta m))
-     :default (SciType. rec-name type type-meta m)))
+  (let [desc (when (and (world/current-world)
+                        (mutable-type? type))
+               (world/register-managed! :deftype-fields [m] []))
+        home (:home desc)
+        registry (:registry desc)
+        value-slot (some-> desc :slots first)
+        obj #?(:cljs (if-let [proto (when (instance? lang/Type type)
+                                      (:sci.impl/js-prototype
+                                       (types/getVal type)))]
+                       (let [obj (js/Object.create proto)]
+                         (.call SciType obj rec-name type type-meta m
+                                home registry value-slot)
+                         obj)
+                       (SciType. rec-name type type-meta m
+                                 home registry value-slot))
+               :default (SciType. rec-name type type-meta m
+                                  home registry value-slot))]
+    #?(:clj (if desc
+              (world/attach-managed-owner!
+               registry (:managed-index desc) obj)
+              obj)
+       :default obj)))
 
 #?(:cljs
    (defmethod types/sci-pr-writer :default [this w opts]

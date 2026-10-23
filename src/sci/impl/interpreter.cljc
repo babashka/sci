@@ -11,7 +11,8 @@
    [sci.impl.parser :as parser]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
-   [sci.impl.vars :as vars]))
+   [sci.impl.vars :as vars]
+   [sci.impl.world :as world]))
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
 
@@ -80,7 +81,7 @@
 (defn eval-form [ctx form]
   #?(:cljd (-install-wiring!))
   (store/with-ctx ctx
-    (eval-form* ctx form)))
+    (world/with-active-world ctx #(eval-form* ctx form))))
 
 (vreset! utils/eval-form-state eval-form)
 

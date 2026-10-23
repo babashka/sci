@@ -32,6 +32,12 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix `instance?` on a protocol returning `true` for a type the protocol is extended to, such as `nil` or `Object`, on the JVM
 - `instance?` on a marker protocol implemented in a `deftype` body returns `true`, on the JVM
 - `satisfies?` on a marker protocol implemented in a `deftype` body returns `true`
+- Add forkable interpreter worlds for Vars, namespaces, dynamic bindings, SCI
+  mutable values, and application-defined host resources.
+- Add explicit continuation-context capture and retargeting so an embedding can
+  resume a suspended computation independently in related forked worlds.
+- Add `with-detached-context` for recursively constructing an independent SCI
+  interpreter without inheriting the caller's execution-local world.
 
 ## 0.15.59
 

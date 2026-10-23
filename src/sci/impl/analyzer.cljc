@@ -13,6 +13,7 @@
    [sci.ctx-store :as store]
    #?(:cljs [sci.impl.async-macro :as async-macro])
    [sci.impl.deftype]
+   #?(:clj [sci.impl.execution :as execution])
    [sci.impl.evaluator :as eval]
    [sci.impl.faster :as faster]
    [sci.impl.fns :as fns]
@@ -25,6 +26,7 @@
     [ana-macros constant? macro? rethrow-with-location-of-node
      set-namespace! recur special-syms]]
    [sci.impl.vars :as vars]
+   [sci.impl.world :as world]
    [sci.lang :as lang])
   #?(:cljs
      (:require-macros
@@ -53,6 +55,31 @@
   (utils/throw-error-with-location msg node {:phase "analysis"}))
 
 (declare analyze analyze-children analyze-call return-call return-map)
+
+#?(:cljd nil
+   :clj
+   (do
+     (deftype DirectVarNode [^sci.impl.vars.IVar v]
+       sci.impl.types/Eval
+       (eval [_ _ctx _bindings]
+         (.getDirectRoot v))
+       sci.impl.types/Stack
+       (stack [_] nil))
+
+     (deftype VarNode [^sci.impl.vars.IVar v
+                       ^int slot]
+       sci.impl.types/Eval
+       (eval [_ _ctx _bindings]
+         (let [state (.get ^ThreadLocal execution/current)
+               ^clojure.lang.Volatile holder
+               (aget ^objects state execution/active-cells-holder-index)
+               ^java.util.concurrent.atomic.AtomicReferenceArray cells
+               (when holder (.deref holder))]
+           (if (nil? holder)
+             (.getDirectRoot v)
+             (.selectRoot v (.get cells slot)))))
+       sci.impl.types/Stack
+       (stack [_] nil))))
 
 ;;;; Constant children
 
@@ -385,6 +412,11 @@
 (defn single-arity-fn [bindings-fn fn-body fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro?
                        #?@(:cljs [capture-pairs enclosed-array-cnt])]
   (let [maker (fn-body-maker fn-body fn-name nsm macro?)
+        fixed-arity (:fixed-arity fn-body)
+        vararg-idx (:vararg-idx fn-body)
+        fn-shape {:variadic (when vararg-idx fixed-arity)
+                  :fixed-many? (and (nil? vararg-idx)
+                                    (> fixed-arity 20))}
         node
         (sci.impl.types/->Node
          (let [enclosed-array (bindings-fn bindings)
@@ -403,7 +435,7 @@
              (aset #?(:cljd ^List enclosed-array :default ^objects enclosed-array)
                    self-ref-in-enclosed-idx
                    f))
-           f)
+           (fns/interpreted-fn f fn-shape))
          nil)]
     #?(:cljs
        ;; fn-creation ast: the emitter builds the enclosed array from its
@@ -593,6 +625,10 @@
                          variadic-maker (when variadic-body
                                           (fn-body-maker variadic-body fn-name nsm macro?))
                          variadic-min (when variadic-body (:fixed-arity variadic-body))
+                         fn-shape {:variadic variadic-min
+                                   :fixed-many? (boolean
+                                                 (some #(> (:fixed-arity %) 20)
+                                                       fixed-bodies))}
                          mk (fn [ctx enclosed-array]
                               ;; indexed by arg count
                               (let [fixed-fns #?(:cljd (#/(List/filled dynamic) fixed-cnt nil)
@@ -621,7 +657,7 @@
                           (aset #?(:cljd ^List enclosed-array :default ^objects enclosed-array)
                                 self-ref-in-enclosed-idx
                                 f))
-                        f)
+                        (fns/interpreted-fn f fn-shape))
                       nil)]
                      #?(:cljs
                         ;; same fn-creation ast as single-arity-fn
@@ -633,7 +669,9 @@
                                     (let [f (mk ctx enclosed-array)]
                                       (when self-ref?
                                         (aset ^objects enclosed-array self-ref-in-enclosed-idx f))
-                                      f))
+                                      ;; the dispatch fn is not made by fns/fun,
+                                      ;; mark it like the interpreted node does
+                                      (fns/interpreted-fn f fn-shape)))
                             capture-pairs enclosed-array-cnt]))
                         :default node)))
         tag (:tag fn-expr-m)
@@ -823,7 +861,8 @@
                                                     false
                                                     false
                                                     nil
-                                                    @utils/current-ns)
+                                                    @utils/current-ns
+                                                    false)
                                     (vars/unbind)))))]
     (swap! env
            (fn [env]
@@ -2205,14 +2244,20 @@
                                                     (eval/resolve-symbol bindings fsym)))))
                                   (let [children (analyze-children ctx rest-forms)
                                         stack (utils/stack-frame m f-meta)
+                                        var-slot (when (and (:sci.impl/world ctx)
+                                                            (utils/var? f))
+                                                   (world/slot-of
+                                                    (:sci.impl/world ctx) f))
                                         node (return-call ctx
                                                           expr
                                                           f children stack
-                                                          #?(:cljd nil
-                                                             :cljs (when (utils/var? f) (fn [_ _ v]
-                                                                                          (deref v))) :clj nil))]
+                                                          (when (some? var-slot)
+                                                            (fn [_ _ v]
+                                                              (vars/getRootAt v var-slot))))]
                                     #?(:cljs (cond (utils/var? f)
-                                                   (t/attach-ast node [:call-var f children stack])
+                                                   (if (some? var-slot)
+                                                     (t/attach-ast node [:call-vslot [f var-slot] children stack])
+                                                     (t/attach-ast node [:call-var f children stack]))
                                                    (fn? f)
                                                    (t/attach-ast node [:call-direct f children stack])
                                                    :else node)
@@ -2254,15 +2299,12 @@
                     node (return-call ctx
                                       expr
                                       f children stack
-                                      #?(:cljd (fn [ctx bindings f]
-                                                 (t/eval f ctx bindings))
-                                         :cljs (if (utils/var? f)
-                                                 (fn [ctx bindings f]
-                                                   (t/eval @f ctx bindings))
-                                                 (fn [ctx bindings f]
-                                                   (t/eval f ctx bindings)))
-                                         :clj (fn [ctx bindings f]
-                                                (t/eval f ctx bindings))))]
+                                      (fn [ctx bindings f]
+                                        (let [callee (t/eval f ctx bindings)]
+                                          (if (and (:sci.impl/world ctx)
+                                                   (utils/var? callee))
+                                            (vars/getRawRoot callee)
+                                            callee))))]
                 #?(:cljs (if (utils/var? f)
                            node
                            ;; computed callee, e.g. ((add 1) 2): the callee
@@ -2412,13 +2454,29 @@
                                                       (str "Can't take value of a macro: " v ""))
                                             :cljs (new js/Error
                                                        (str "Can't take value of a macro: " v ""))))
-                                  (sci.impl.types/->Node
-                                   (faster/deref-1 v)
-                                   nil
-                                   ;; value-position var read: emitted as a
-                                   ;; plain deref, never cached (see the
-                                   ;; retention note on the deref cache)
-                                   [:vderef v])))
+                                  (let [slot (when (:sci.impl/world ctx)
+                                               (world/slot-of (:sci.impl/world ctx) v))]
+                                    #?(:clj
+                                       (if (some? slot)
+                                         (VarNode. v (int slot))
+                                         (if (:sci.impl/world ctx)
+                                           (sci.impl.types/->Node
+                                            (faster/deref-1 v) nil)
+                                           (DirectVarNode. v)))
+                                       :default
+                                       (sci.impl.types/->Node
+                                        (if (some? slot)
+                                          (vars/getRootAt v slot)
+                                          (if (:sci.impl/world ctx)
+                                            (faster/deref-1 v)
+                                            (faster/deref-1 v)))
+                                        nil
+                                        ;; Dynamic Vars retain binding-frame
+                                        ;; lookup. Other registered Vars resolve
+                                        ;; their dense lineage slot once here.
+                                        (if (some? slot)
+                                          [:vslot slot v]
+                                          [:vderef v]))))))
                               #?@(:clj
                                   [(:sci.impl.analyzer/interop mv)
                                    (analyze-interop ctx expr v)])

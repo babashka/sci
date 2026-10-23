@@ -584,6 +584,67 @@ aren't visible to other users:
 (sci/eval-string* sci-ctx "forked") ;;=> Unable to resolve symbol: forked
 ```
 
+Full runtime forking is opt-in. Initialize the shared context with
+`:runtime-mode :forkable`; the default `:standard` mode retains SCI's original
+direct hot paths and `sci/fork` only copies the namespace environment.
+
+Values returned across the host boundary retain their world semantics:
+interpreted functions returned by the public evaluation APIs execute in the
+context that returned them, including higher-order results and functions nested
+in finite persistent containers. Stable SCI Vars use their creation world when
+called directly by the host. Use `sci/call-with-context` to select a descendant
+explicitly, and use `sci/alter-var-meta!` / `sci/reset-var-meta!` for portable
+fork-aware Var metadata mutation.
+
+Forkable mode snapshots the roots and metadata of existing SCI vars and the
+values of atoms and volatiles created inside SCI. The handles keep their
+identity, so aliases and functions defined before the fork resolve against the
+world in which they are invoked:
+
+``` clojure
+(def sci-ctx (sci/init {:runtime-mode :forkable}))
+
+(sci/eval-string* sci-ctx
+  "(def counter (atom 0))
+   (defn bump! [] (swap! counter inc))")
+
+(def forked (sci/fork sci-ctx))
+(sci/eval-string* forked "(bump!)")       ;;=> 1
+(sci/eval-string* sci-ctx "@counter")     ;;=> 0
+```
+
+Values supplied by the host remain the host application's responsibility. An
+application-owned type can implement `sci.fork/Forkable`; SCI invokes its
+`fork-value` method once per identical value in each fork and preserves aliases
+to the resulting copy. Returning the object itself explicitly shares it, while
+throwing rejects the fork. For unclassified values, the optional `:fork-fn`
+remains a general fallback. It should return immutable values unchanged and
+preserve any aliasing that matters to the application:
+
+``` clojure
+(def sci-ctx
+  (sci/init {:runtime-mode :forkable
+             :fork-fn #(if (instance? clojure.lang.Atom %)
+                         (atom @%)
+                         %)}))
+```
+
+Dynamic binding frames remain scoped to their thread and evaluation, matching
+the Clojure REPL model; a fork snapshots root bindings, not a running control
+continuation. Stateful host objects not handled by `:fork-fn`, and mutable
+facilities not owned by SCI such as Java objects, remain shared.
+
+Runtime state is stored in dense lineage-local slots. A fork copies those
+slots, favoring the expected case where ordinary reads and writes are much
+more frequent than forks. On the JVM a fork waits for active forms in its
+source world, so the copied state is a quiescent snapshot.
+
+See [Forkable SCI worlds](doc/forking.md) for the lifecycle, semantic boundary,
+and current limitations of this experimental model.
+
+A small interactive tree of forked REPL worlds can be run with
+`clojure -M:examples -m sci.examples.forked-repl`.
+
 ### Implementing require and load-file
 
 SCI supports loading code via a hook that is invoked by SCI's implementation of

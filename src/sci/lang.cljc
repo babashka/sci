@@ -1,7 +1,8 @@
 (ns sci.lang
   (:require [sci.ctx-store]
             [sci.impl.types :as types]
-            [sci.impl.vars :as vars])
+            [sci.impl.vars :as vars]
+            [sci.impl.world :as world])
   (:refer-clojure :exclude [Var ->Var var? Namespace ->Namespace]))
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
@@ -12,37 +13,59 @@
 (deftype ^{:doc "Representation of a SCI custom type, created e.g. with `(defrecord Foo [])`. The fields of this type are implementation detail and should not be accessed directly."}
     Type [#?(:cljd ^:mutable data :clj ^:volatile-mutable data :cljs ^:volatile-mutable data)]
   sci.impl.types/IBox
-  (getVal [_] data)
-  (setVal [_ v] (set! data v))
+  (getVal [this] (world/type-data this data))
+  (setVal [this v]
+    (if (world/current-world)
+      (do
+        (world/reset-type-data! this v)
+        (when (world/primary-world?) (set! data v))
+        v)
+      (set! data v)))
   Object
   ;; NOTE: returns "user.Foo" rather than "class user.Foo" (unlike java.lang.Class).
   ;; Changing this would break downstream libs (e.g. prismatic/schema).
-  (toString [_]
-    (str (:sci.impl/type-name data)))
+  (toString [this]
+    (str (:sci.impl/type-name (world/type-data this data))))
 
   ;; meta is only supported to get our implementation! keys out
   #?@(:cljd
       [IMeta
-       (-meta [_] data)]
+       (-meta [this] (world/type-data this data))]
       :clj
       [clojure.lang.IMeta
-       (meta [_] data)]
+       (meta [this] (world/type-data this data))]
       :cljs
       [IMeta
-       (-meta [_] data)])
+       (-meta [this] (world/type-data this data))])
 
   ;; support alter-meta! for storing print-method etc.
   #?@(:cljd
       [types/IResetMeta
-       (-reset-meta! [_ m] (set! data m))]
+       (-reset-meta! [this m]
+         (if (world/current-world)
+           (do
+             (world/reset-type-data! this m)
+             (when (world/primary-world?) (set! data m))
+             m)
+           (set! data m)))]
       :clj
       [clojure.lang.IReference
        (alterMeta [this f args]
                   (locking this
-                    (set! data (apply f data args))))
+                    (if (world/current-world)
+                      (let [m (world/alter-type-data!
+                               this (world/type-data this data) f args)]
+                        (when (world/primary-world?) (set! data m))
+                        m)
+                      (set! data (apply f data args)))))
        (resetMeta [this m]
                   (locking this
-                    (set! data m)))])
+                    (if (world/current-world)
+                      (do
+                        (world/reset-type-data! this m)
+                        (when (world/primary-world?) (set! data m))
+                        m)
+                      (set! data m))))])
 
   types/HasName
   (getName [this] (str this)))
@@ -87,45 +110,106 @@
          #?(:cljd ^:mutable watches
             :clj ^:volatile-mutable watches
             :cljs ^:mutable watches)
-         ns]
+         ns
+         #?(:cljd ^:mutable world-tracked
+            :clj ^:volatile-mutable world-tracked
+            :cljs ^:mutable world-tracked)]
   ;; marker interface, clj only for now
   #?@(:cljd [] :clj [sci.lang.IVar])
+  world/IWorldTracked
+  (-world-tracked? [_] (boolean world-tracked))
+  (-world-home-ctx [_] (when (map? world-tracked) world-tracked))
+  (-mark-world-tracked! [this home-ctx]
+    (let [current world-tracked]
+      (when (and (map? current)
+                 home-ctx
+                 (not (identical? (:sci.impl/lineage current)
+                                  (:sci.impl/lineage home-ctx))))
+        ;; A stable host/built-in Var can be installed in unrelated contexts.
+        ;; It then has no unambiguous implicit home; callers select a world
+        ;; explicitly with sci/call-with-context.
+        #?(:cljd (set! world-tracked true)
+           :default (set! (.-world-tracked this) true)))
+      (when-not current
+        #?(:cljd (set! world-tracked (or home-ctx true))
+           :default (set! (.-world-tracked this) (or home-ctx true)))))
+    true)
   types/HasName
-  (getName [_this]
-    (or (:name meta) sym))
+  (getName [this]
+    (or (:name (if world-tracked (world/var-meta this meta) meta)) sym))
   vars/IVar
   (bindRoot [this v]
-    (let [old-root (.-root this)]
-      (vars/with-writeable-var this meta
-        (vars/bumping-set! root v))
-      (notify-watches this watches old-root v))
+    (let [old-root (if world-tracked (world/var-value this root) root)
+          current-meta (if world-tracked (world/var-meta this meta) meta)]
+      (vars/with-writeable-var this current-meta
+        (if (world/current-world)
+          (do (world/register-var! this v current-meta)
+              (when (world/primary-world?)
+                (vars/bumping-set! root v)))
+          (vars/bumping-set! root v)))
+      (notify-watches this (world/var-watches this watches) old-root v))
     ;; this is the return value for alter-var-root which should be the only place calling bindRoot directly
     v)
-  (getRawRoot [_this]
-    root)
-  (toSymbol [_this]
+  (getRawRoot [this]
+    (if world-tracked (world/var-value this root) root))
+  (getRawWatches [_] watches)
+  (getDirectRoot [this]
+    (if thread-bound
+      (if-let [tbox (vars/get-thread-binding this)]
+        (types/getVal tbox)
+        (if world-tracked (world/var-value this root) root))
+      (if world-tracked (world/var-value this root) root)))
+  (selectRoot [this world-value]
+    (if thread-bound
+      (if-let [tbox (vars/get-thread-binding this)]
+        (types/getVal tbox)
+        world-value)
+      world-value))
+  (getRootAt [this slot]
+    ;; A Var can be marked ^:dynamic after this read site was analyzed. Keep
+    ;; the same late binding-frame check as deref while retaining the resolved
+    ;; root slot for the common non-dynamic case.
+    (if thread-bound
+      (if-let [tbox (vars/get-thread-binding this)]
+        (types/getVal tbox)
+        (world/var-value-at slot root))
+      (world/var-value-at slot root)))
+  (toSymbol [this]
     ;; if we have at least a name from metadata, then build the symbol from that
-    (if-let [sym-name (some-> (:name meta) name)]
-      (symbol (some-> (:ns meta) types/getName name) sym-name)
+    (let [current-meta (if world-tracked (world/var-meta this meta) meta)]
+      (if-let [sym-name (some-> (:name current-meta) name)]
+        (symbol (some-> (:ns current-meta) types/getName name) sym-name)
       ;; otherwise, fall back to the symbol
-      sym))
-  (isMacro [_]
-    (or (:macro meta)
-        (when-some [m (clojure.core/meta root)]
-          (:sci/macro m))))
+        sym)))
+  (isMacro [this]
+    (let [current-meta (if world-tracked (world/var-meta this meta) meta)
+          current-root (if world-tracked (world/var-value this root) root)]
+      (or (:macro current-meta)
+          (when-some [m (clojure.core/meta current-root)]
+            (:sci/macro m)))))
   (setThreadBound [this v]
     #?(:cljd (set! thread-bound v)
        :default (set! (.-thread-bound this) v)))
   (unbind [this]
-    (vars/with-writeable-var this meta
-      (vars/bumping-set! (.-root this) (vars/->SciUnbound this))))
-  (hasRoot [_this]
+    (let [current-meta (if world-tracked (world/var-meta this meta) meta)]
+      (vars/with-writeable-var this current-meta
+        (if (world/current-world)
+          (let [unbound (vars/->SciUnbound this)]
+            ;; A newly interned Var has no slot yet, especially in a child
+            ;; world. Registering here preserves unboundness without mutating
+            ;; the shared direct root.
+            (world/register-var! this unbound current-meta)
+            (when (world/primary-world?)
+              (vars/bumping-set! (.-root this) unbound)))
+          (vars/bumping-set! (.-root this) (vars/->SciUnbound this))))))
+  (hasRoot [this]
     (not (instance? #?(:cljd vars/SciUnbound
                        :clj sci.impl.vars.SciUnbound
-                       :cljs sci.impl.vars.SciUnbound) root)))
+                       :cljs sci.impl.vars.SciUnbound)
+                    (if world-tracked (world/var-value this root) root))))
   vars/DynVar
-  (dynamic? [_this]
-    (:dynamic meta))
+  (dynamic? [this]
+    (:dynamic (if world-tracked (world/var-meta this meta) meta)))
   types/IBox
   (setVal [this v]
     (if-let [b (vars/get-thread-binding this)]
@@ -138,13 +222,21 @@
              (types/setVal b v)))
          :cljs (types/setVal b v))
       #?(:cljd (if (:unrestricted sci.ctx-store/*ctx*)
-                 (set! (.-root this) v)
+                 (if (world/current-world)
+                   (do (world/reset-value! this v)
+                       (when (world/primary-world?)
+                         (set! (.-root this) v)))
+                   (set! (.-root this) v))
                  (throw-root-binding this))
          :clj (throw-root-binding this)
          :cljs (if (:unrestricted sci.ctx-store/*ctx*)
-                 (vars/bumping-set! (.-root this) v)
+                 (if (world/current-world)
+                   (do (world/reset-value! this v)
+                       (when (world/primary-world?)
+                         (vars/bumping-set! (.-root this) v)))
+                   (vars/bumping-set! (.-root this) v))
                  (throw-root-binding this)))))
-  (getVal [_this] root)
+  (getVal [this] (if world-tracked (world/var-value this root) root))
   #?(:cljd IDeref :clj clojure.lang.IDeref :cljs IDeref)
   (#?(:cljd -deref
       :clj deref
@@ -152,8 +244,8 @@
     (if thread-bound
       (if-let [tbox (vars/get-thread-binding this)]
         (types/getVal tbox)
-        root)
-      root))
+        (if world-tracked (world/var-value this root) root))
+      (if world-tracked (world/var-value this root) root)))
   Object
   (toString [this]
     (str "#'" (vars/toSymbol this)))
@@ -162,7 +254,9 @@
                        (-write writer "#'")
                        (-pr-writer (vars/toSymbol a) writer opts)))
   #?(:cljd IMeta :clj clojure.lang.IMeta :cljs IMeta)
-  #?(:cljd (-meta [_] meta) :clj (clojure.core/meta [_] meta) :cljs (-meta [_] meta))
+  #?(:cljd (-meta [this] (if world-tracked (world/var-meta this meta) meta))
+     :clj (clojure.core/meta [this] (if world-tracked (world/var-meta this meta) meta))
+     :cljs (-meta [this] (if world-tracked (world/var-meta this meta) meta)))
   ;; #?(:clj Comparable :cljs IEquiv)
   ;; (-equiv [this other]
   ;;   (if (instance? Var other)
@@ -173,121 +267,216 @@
   ;;   (hash-symbol sym))
   #?@(:cljd [] :clj [clojure.lang.IReference
                      (alterMeta [this f args]
-                                (vars/with-writeable-var this meta
-                                  (locking this (set! meta (apply f meta args)))))
+                                (world/call-with-var-context
+                                 this
+                                 (fn []
+                                   (let [current-meta (world/var-meta this meta)]
+                                     (vars/with-writeable-var this current-meta
+                                       (locking this
+                                         (if (world/current-world)
+                                           (let [m (world/alter-var-meta! this current-meta f args)]
+                                             (when (world/primary-world?)
+                                               (set! (.-meta this) m))
+                                             m)
+                                           (set! (.-meta this) (apply f meta args)))))))))
                      (resetMeta [this m]
-                                (vars/with-writeable-var this meta
-                                  (locking this (set! meta m))))])
+                                (world/call-with-var-context
+                                 this
+                                 (fn []
+                                   (let [current-meta (world/var-meta this meta)]
+                                     (vars/with-writeable-var this current-meta
+                                       (locking this
+                                         (if (world/current-world)
+                                           (do (world/reset-var-meta! this m)
+                                               (when (world/primary-world?)
+                                                 (set! (.-meta this) m))
+                                               m)
+                                           (set! (.-meta this) m))))))))])
   #?@(:cljd [types/IResetMeta
              (-reset-meta! [this m]
-               (vars/with-writeable-var this meta
-                 (set! meta m)))
+               (world/call-with-var-context
+                this
+                (fn []
+                  (let [current-meta (world/var-meta this meta)]
+                    (vars/with-writeable-var this current-meta
+                      (if (world/current-world)
+                        (do (world/reset-var-meta! this m)
+                            (when (world/primary-world?)
+                              (set! (.-meta this) m))
+                            m)
+                        (set! (.-meta this) m)))))))
              IWatchable
-             (-add-watch [this key fn]
-                         (vars/with-writeable-var this meta
-                           (set! watches (assoc watches key fn)))
+             (-add-watch [this key watch-fn]
+                         (world/call-with-var-context
+                          this
+                          (fn []
+                            (let [current-meta (world/var-meta this meta)]
+                              (vars/with-writeable-var this current-meta
+                                (if (world/current-world)
+                                  (do
+                                    (when-not (world/tracked? this)
+                                      (world/register-var!
+                                       this root current-meta watches))
+                                    (world/alter-var-watches!
+                                     this watches assoc [key watch-fn]))
+                                  (set! (.-watches this) (assoc watches key watch-fn)))))))
                          this)
              (-remove-watch [this key]
-                            (vars/with-writeable-var this meta
-                              (set! watches (dissoc watches key)))
+                            (world/call-with-var-context
+                             this
+                             (fn []
+                               (let [current-meta (world/var-meta this meta)]
+                                 (vars/with-writeable-var this current-meta
+                                   (if (world/current-world)
+                                     (do
+                                       (when-not (world/tracked? this)
+                                         (world/register-var!
+                                          this root current-meta watches))
+                                       (world/alter-var-watches!
+                                        this watches dissoc [key]))
+                                     (set! (.-watches this) (dissoc watches key)))))))
                             this)]
       :clj [clojure.lang.IRef
-            (addWatch [this key fn]
-                      (vars/with-writeable-var this meta
-                        (set! watches (assoc watches key fn)))
+            (addWatch [this key watch-fn]
+                      (world/call-with-var-context
+                       this
+                       (fn []
+                         (let [current-meta (world/var-meta this meta)]
+                           (vars/with-writeable-var this current-meta
+                             (if (world/current-world)
+                               (do
+                                 (when-not (world/tracked? this)
+                                   (world/register-var!
+                                    this root current-meta watches))
+                                 (world/alter-var-watches!
+                                  this watches assoc [key watch-fn]))
+                               (set! (.-watches this) (assoc watches key watch-fn)))))))
                       this)
             (removeWatch [this key]
-                         (vars/with-writeable-var this meta
-                           (set! watches (dissoc watches key)))
+                         (world/call-with-var-context
+                          this
+                          (fn []
+                            (let [current-meta (world/var-meta this meta)]
+                              (vars/with-writeable-var this current-meta
+                                (if (world/current-world)
+                                  (do
+                                    (when-not (world/tracked? this)
+                                      (world/register-var!
+                                       this root current-meta watches))
+                                    (world/alter-var-watches!
+                                     this watches dissoc [key]))
+                                  (set! (.-watches this) (dissoc watches key)))))))
                          this)]
       :cljs [IWatchable
-            (-add-watch [this key fn]
-                        (vars/with-writeable-var this meta
-                          (set! watches (assoc watches key fn)))
+            (-add-watch [this key watch-fn]
+                        (world/call-with-var-context
+                         this
+                         (fn []
+                           (let [current-meta (world/var-meta this meta)]
+                             (vars/with-writeable-var this current-meta
+                               (if (world/current-world)
+                                 (do
+                                   (when-not (world/tracked? this)
+                                     (world/register-var!
+                                      this root current-meta watches))
+                                   (world/alter-var-watches!
+                                    this watches assoc [key watch-fn]))
+                                 (set! (.-watches this) (assoc watches key watch-fn)))))))
                         this)
             (-remove-watch [this key]
-                           (vars/with-writeable-var this meta
-                             (set! watches (dissoc watches key)))
+                           (world/call-with-var-context
+                            this
+                            (fn []
+                              (let [current-meta (world/var-meta this meta)]
+                                (vars/with-writeable-var this current-meta
+                                  (if (world/current-world)
+                                    (do
+                                      (when-not (world/tracked? this)
+                                        (world/register-var!
+                                         this root current-meta watches))
+                                      (world/alter-var-watches!
+                                       this watches dissoc [key]))
+                                    (set! (.-watches this) (dissoc watches key)))))))
                            this)])
   ;; #?(:cljs Fn) ;; In the real CLJS this is there... why?
   #?(:cljd IFn :clj clojure.lang.IFn :cljs IFn)
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this]
-    (@this))
+    ((vars/getDirectRoot this)))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a]
-    (@this a))
+    ((vars/getDirectRoot this) a))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b]
-    (@this a b))
+    ((vars/getDirectRoot this) a b))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b c]
-    (@this a b c))
+    ((vars/getDirectRoot this) a b c))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b c d]
-    (@this a b c d))
+    ((vars/getDirectRoot this) a b c d))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b c d e]
-    (@this a b c d e))
+    ((vars/getDirectRoot this) a b c d e))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b c d e f]
-    (@this a b c d e f))
+    ((vars/getDirectRoot this) a b c d e f))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b c d e f g]
-    (@this a b c d e f g))
+    ((vars/getDirectRoot this) a b c d e f g))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b c d e f g h]
-    (@this a b c d e f g h))
+    ((vars/getDirectRoot this) a b c d e f g h))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b c d e f g h i]
-    (@this a b c d e f g h i))
+    ((vars/getDirectRoot this) a b c d e f g h i))
   #?@(:cljd
       [(-invoke-more [this a b c d e f g h i rest]
-         (apply @this a b c d e f g h i rest))
+         (apply (vars/getDirectRoot this) a b c d e f g h i rest))
        (-apply [this args]
-         (apply @this args))]
+         (apply (vars/getDirectRoot this) args))]
       :clj
       [(invoke [this a b c d e f g h i j]
-         (@this a b c d e f g h i j))
+         ((vars/getDirectRoot this) a b c d e f g h i j))
        (invoke [this a b c d e f g h i j k]
-         (@this a b c d e f g h i j k))
+         ((vars/getDirectRoot this) a b c d e f g h i j k))
        (invoke [this a b c d e f g h i j k l]
-         (@this a b c d e f g h i j k l))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l))
        (invoke [this a b c d e f g h i j k l m]
-         (@this a b c d e f g h i j k l m))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m))
        (invoke [this a b c d e f g h i j k l m n]
-         (@this a b c d e f g h i j k l m n))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n))
        (invoke [this a b c d e f g h i j k l m n o]
-         (@this a b c d e f g h i j k l m n o))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o))
        (invoke [this a b c d e f g h i j k l m n o p]
-         (@this a b c d e f g h i j k l m n o p))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p))
        (invoke [this a b c d e f g h i j k l m n o p q]
-         (@this a b c d e f g h i j k l m n o p q))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q))
        (invoke [this a b c d e f g h i j k l m n o p q r]
-         (@this a b c d e f g h i j k l m n o p q r))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r))
        (invoke [this a b c d e f g h i j k l m n o p q r s]
-         (@this a b c d e f g h i j k l m n o p q r s))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r s))
        (invoke [this a b c d e f g h i j k l m n o p q r s t]
-         (@this a b c d e f g h i j k l m n o p q r s t))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r s t))
        (invoke [this a b c d e f g h i j k l m n o p q r s t rest]
-         (apply @this a b c d e f g h i j k l m n o p q r s t rest))
+         (apply (vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r s t rest))
        (applyTo [this args]
-                (apply @this args))]
+                (apply (vars/getDirectRoot this) args))]
       :cljs
       [(-invoke [this a b c d e f g h i j]
-         (@this a b c d e f g h i j))
+         ((vars/getDirectRoot this) a b c d e f g h i j))
        (-invoke [this a b c d e f g h i j k]
-         (@this a b c d e f g h i j k))
+         ((vars/getDirectRoot this) a b c d e f g h i j k))
        (-invoke [this a b c d e f g h i j k l]
-         (@this a b c d e f g h i j k l))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l))
        (-invoke [this a b c d e f g h i j k l m]
-         (@this a b c d e f g h i j k l m))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m))
        (-invoke [this a b c d e f g h i j k l m n]
-         (@this a b c d e f g h i j k l m n))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n))
        (-invoke [this a b c d e f g h i j k l m n o]
-         (@this a b c d e f g h i j k l m n o))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o))
        (-invoke [this a b c d e f g h i j k l m n o p]
-         (@this a b c d e f g h i j k l m n o p))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p))
        (-invoke [this a b c d e f g h i j k l m n o p q]
-         (@this a b c d e f g h i j k l m n o p q))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q))
        (-invoke [this a b c d e f g h i j k l m n o p q r]
-         (@this a b c d e f g h i j k l m n o p q r))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r))
        (-invoke [this a b c d e f g h i j k l m n o p q r s]
-         (@this a b c d e f g h i j k l m n o p q r s))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r s))
        (-invoke [this a b c d e f g h i j k l m n o p q r s t]
-         (@this a b c d e f g h i j k l m n o p q r s t))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r s t))
        (-invoke [this a b c d e f g h i j k l m n o p q r s t rest]
-         (apply @this a b c d e f g h i j k l m n o p q r s t rest))]))
+         (apply (vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r s t rest))]))
 
 #?(:cljd nil
    :clj
@@ -310,15 +499,35 @@
   types/HasName
   (getName [_] name)
   #?(:cljd IMeta :clj clojure.lang.IMeta :cljs IMeta)
-  #?(:cljd (-meta [_] meta) :clj (clojure.core/meta [_] meta) :cljs (-meta [_] meta))
+  #?(:cljd (-meta [this] (world/namespace-meta this meta))
+     :clj (clojure.core/meta [this] (world/namespace-meta this meta))
+     :cljs (-meta [this] (world/namespace-meta this meta)))
   #?@(:cljd [types/IResetMeta
              (-reset-meta! [this m]
-               (vars/with-writeable-namespace this meta
-                 (set! meta m)))]
+               (let [current-meta (world/namespace-meta this meta)]
+                 (vars/with-writeable-namespace this current-meta
+                   (if (world/current-world)
+                     (do (world/reset-namespace-meta! this m)
+                         (when (world/primary-world?) (set! meta m))
+                         m)
+                     (set! meta m)))))]
       :clj [clojure.lang.IReference
             (alterMeta [this f args]
-                       (vars/with-writeable-namespace this meta
-                         (locking this (set! meta (apply f meta args)))))
+                       (let [current-meta (world/namespace-meta this meta)]
+                         (vars/with-writeable-namespace this current-meta
+                           (locking this
+                             (if (world/current-world)
+                               (let [m (world/alter-namespace-meta!
+                                        this current-meta f args)]
+                                 (when (world/primary-world?) (set! meta m))
+                                 m)
+                               (set! meta (apply f meta args)))))))
             (resetMeta [this m]
-                       (vars/with-writeable-namespace this meta
-                         (locking this (set! meta m))))]))
+                       (let [current-meta (world/namespace-meta this meta)]
+                         (vars/with-writeable-namespace this current-meta
+                           (locking this
+                             (if (world/current-world)
+                               (do (world/reset-namespace-meta! this m)
+                                   (when (world/primary-world?) (set! meta m))
+                                   m)
+                               (set! meta m))))))]))

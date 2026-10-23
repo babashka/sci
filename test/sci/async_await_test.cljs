@@ -555,3 +555,22 @@
                  (is (= :ok docstring)))
                (p/catch (fn [e] (is false (str "threw: " (.-message e)))))
                (p/finally done)))))
+
+(deftest async-dynamic-binding-and-world-test
+  (testing "await continuations retain their SCI world and binding frame"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string*
+                          ctx
+                          "(def ^:dynamic *scope* :root)
+                           (defn ^:async retained-state []
+                             (binding [*scope* :bound]
+                               (let [before *scope*
+                                     awaited (await (js/Promise.resolve :ready))
+                                     state (atom awaited)]
+                                 [before *scope* @state])))
+                           (retained-state)")]
+                 (is (= [:bound :bound :ready] v))
+                 (is (= :root (sci/eval-string* ctx "*scope*"))))
+               (p/catch (fn [e] (is false (str "threw: " (.-message e)))))
+               (p/finally done)))))

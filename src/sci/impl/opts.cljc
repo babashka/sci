@@ -2,12 +2,48 @@
   {:no-doc true}
   (:require
    #?(:cljs [goog.string])
+   [sci.ctx-store :as store]
+   [sci.impl.deftype :as deftype]
    [sci.impl.namespaces :as namespaces]
-   [sci.impl.types]
+   [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
+   [sci.impl.vars :as vars]
+   [sci.impl.world :as world]
    #?(:cljd [sci.lang :as lang] :default [sci.lang]))
   #?@(:cljd [] :clj [(:import
-                      [sci.impl.types ICustomType])]))
+                       [sci.impl.types ICustomType])]))
+
+(defn- register-vars! [ctx]
+  (when (:sci.impl/world ctx)
+    (store/with-ctx ctx
+      (world/with-active-world
+        ctx
+        #(do
+         (doseq [[_ ns-map] (:namespaces @(:env ctx))
+                 :let [ns-obj (:obj ns-map)]
+                 :when ns-obj]
+           (world/register-namespace! ns-obj (meta ns-obj)))
+         (doseq [[_ ns-map] (:namespaces @(:env ctx))
+                 [_ t] (:types ns-map)
+                 :when (utils/sci-type? t)]
+           (world/register-type!
+            t (types/getVal t)
+            #?(:cljs deftype/fork-type-data :default nil)))
+         (doseq [[_ ns-map] (:namespaces @(:env ctx))
+                 [_ v] ns-map
+                 :when (and (utils/var? v)
+                            (not (world/registered?
+                                  (:sci.impl/world ctx) v)))]
+           (world/register-var! v (vars/getRawRoot v) (meta v)
+                                (vars/getRawWatches v))))))))
+
+(defn- normalize-runtime-mode [mode]
+  (let [mode (or mode :standard)]
+    (when-not (#{:standard :forkable} mode)
+      (throw (ex-info "Invalid SCI runtime mode."
+                      {:runtime-mode mode
+                       :allowed #{:standard :forkable}})))
+    mode))
 
 #?(:clj
    (defrecord Env [namespaces imports load-fn]))
@@ -249,6 +285,8 @@
            deftype-fn
            interrupt-fn
            unrestricted
+           runtime-mode
+           fork-fn
            #?(:cljs async-load-fn)
            #?(:cljs js-libs)
            ns-aliases]}]
@@ -257,10 +295,16 @@
         ns-aliases (merge default-ns-aliases ns-aliases)
         raw-classes (merge default-classes classes)
         classes (normalize-classes raw-classes)
+        runtime-mode (normalize-runtime-mode runtime-mode)
         namespaces (cond-> namespaces
+                     (= :forkable runtime-mode)
+                     (->> (merge-with merge
+                                      {'clojure.core
+                                       namespaces/forkable-core-overrides}))
                      bindings (merge {'user (assoc bindings :obj utils/user-ns)}))
         _ (init-env! env aliases namespaces classes raw-classes imports
                      load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
+        world-root (when (= :forkable runtime-mode) (world/new-world))
         ctx (assoc (->ctx {} env features readers (or allow deny)
                           :interrupt-fn interrupt-fn)
                    :allow (when allow (process-permissions #{} allow))
@@ -269,7 +313,15 @@
                    :proxy-fn proxy-fn
                    :deftype-fn deftype-fn
                    :unrestricted unrestricted
+                   :runtime-mode runtime-mode
+                   :fork-fn fork-fn
+                   :sci.impl/world world-root
+                   :sci.impl/read-world (when world-root
+                                          (world/read-world world-root true))
+                   :sci.impl/lineage (when world-root (atom nil))
+                   :sci.impl/primary? (when world-root true)
                    #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]))]
+    (register-vars! ctx)
     ctx))
 
 (defn merge-opts [ctx opts]
@@ -286,12 +338,22 @@
                 readers
                 reify-fn
                 deftype-fn
+                runtime-mode
+                fork-fn
                 #?(:cljs async-load-fn)
                 #?(:cljs js-libs)
                 ns-aliases]
          :or {load-fn (:load-fn env)
               #?@(:cljs [async-load-fn (:async-load-fn env)])
               features (:features ctx)}} opts
+        inherited-runtime-mode (:runtime-mode ctx :standard)
+        runtime-mode (if (contains? opts :runtime-mode)
+                       (normalize-runtime-mode runtime-mode)
+                       inherited-runtime-mode)
+        _ (when-not (= runtime-mode inherited-runtime-mode)
+            (throw (ex-info "SCI runtime mode cannot be changed by merge-opts."
+                            {:runtime-mode runtime-mode
+                             :context-runtime-mode inherited-runtime-mode})))
         raw-classes (merge (:raw-classes @!env) classes)
         classes (normalize-classes raw-classes)
         namespaces (cond-> namespaces
@@ -299,6 +361,7 @@
         _ (init-env! !env aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
         interrupt-fn (if (contains? opts :interrupt-fn) (:interrupt-fn opts) (:interrupt-fn ctx))
         unrestricted (if (contains? opts :unrestricted) (:unrestricted opts) (:unrestricted ctx))
+        fork-fn (if (contains? opts :fork-fn) fork-fn (:fork-fn ctx))
         ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny)
                           :interrupt-fn interrupt-fn)
                    :allow (when allow (process-permissions (:allow ctx) allow))
@@ -306,5 +369,12 @@
                    :reify-fn reify-fn
                    :deftype-fn deftype-fn
                    :unrestricted unrestricted
+                   :runtime-mode runtime-mode
+                   :fork-fn fork-fn
+                   :sci.impl/world (:sci.impl/world ctx)
+                   :sci.impl/read-world (:sci.impl/read-world ctx)
+                   :sci.impl/lineage (:sci.impl/lineage ctx)
+                   :sci.impl/primary? (:sci.impl/primary? ctx)
                    :main-thread-id (:main-thread-id ctx))]
+    (register-vars! ctx)
     ctx))

@@ -112,7 +112,43 @@
        (is (= 13 (tu/eval* "(def ^:dynamic x 10)
                               (binding [x (inc x)]
                                 @(future (binding [x (inc x)] @(future (binding [x (inc x)] x)))))"
-                           (addons/future {})))))))
+                           (addons/future {})))))
+
+     (deftest forked-future-uses-child-world-test
+       (let [parent (tu/forkable-init (addons/future {}))]
+         (sci/eval-string*
+          parent
+          "(def state (atom 0))
+           (def ^:dynamic *scope* :root)")
+         (let [child (sci/fork parent)]
+           (is (= [:bound 1]
+                  (sci/eval-string*
+                   child
+                   "(binding [*scope* :bound]
+                      @(future [*scope* (swap! state inc)]))")))
+           (is (= [:root 0]
+                  (sci/eval-string* parent "[*scope* @state]")))
+           (is (= [:root 1]
+                  (sci/eval-string* child "[*scope* @state]"))))))
+
+     (deftest forked-future-participates-in-world-quiescence-test
+       (let [entered (promise)
+             release (promise)
+             parent (tu/forkable-init
+                     (addons/future
+                      {:bindings {'block! (fn []
+                                            (deliver entered true)
+                                            @release)}}))
+             child (sci/fork parent)
+             task (sci/eval-string* child "(future (block!))")]
+         (is (= true (deref entered 1000 ::timeout)))
+         (let [forking (future (sci/fork child))]
+           (try
+             (is (= ::waiting (deref forking 50 ::waiting)))
+             (finally
+               (deliver release true)))
+           (is (= true (deref task 1000 ::timeout)))
+           (is (map? (deref forking 1000 ::timeout))))))))
 
 #?(:cljd nil
    :clj
@@ -135,7 +171,24 @@
 (binding [*some-var* :hello]
   (.start (java.lang.Thread. (bound-fn [] (f)))))
 @state"
-                               {:classes {'java.lang.Thread java.lang.Thread}}))))))
+                               {:classes {'java.lang.Thread java.lang.Thread}}))))
+
+     (deftest forked-bound-fn-uses-child-world-test
+       (let [parent (tu/forkable-init {})]
+         (sci/eval-string*
+          parent
+          "(def state (atom 0))
+           (def ^:dynamic *scope* :root)")
+         (let [child (sci/fork parent)
+               f (sci/eval-string*
+                  child
+                  "(binding [*scope* :bound]
+                     (bound-fn [] [*scope* (swap! state inc)]))")
+               result (promise)]
+           (.start (Thread. #(deliver result (f))))
+           (is (= [:bound 1] (deref result 1000 ::timeout)))
+           (is (= 0 (sci/eval-string* parent "@state")))
+           (is (= 1 (sci/eval-string* child "@state"))))))))
 
 #?(:cljd nil
    :clj
@@ -156,11 +209,188 @@
                           (sci/with-bindings {1 1}
                             (sci/eval-string "*x*" {:bindings {'*x* 1}}))))))
 
+(deftest forked-continuation-context-test
+  (let [captured (atom nil)
+        parent (tu/forkable-init
+                {:bindings
+                 {'capture-continuation-context!
+                  #(reset! captured (sci/capture-continuation-context))}})]
+    (sci/eval-string*
+     parent
+     "(def state (atom 0))
+      (def ^:dynamic *outer* :root)
+      (def ^:dynamic *inner* :root)
+      (defn resume! [tag]
+        (let [before [*outer* *inner*]
+              _ (set! *inner* tag)]
+          [before [*outer* *inner*] (swap! state inc)]))
+      (defn unwind! []
+        (let [inner *inner*]
+          (pop-thread-bindings)
+          [inner *outer* *inner*]))
+      (binding [*outer* :outer]
+        (binding [*inner* :inner]
+          (capture-continuation-context!)))")
+    (let [child (sci/fork parent)
+          sibling (sci/fork parent)
+          child-context
+          (sci/retarget-continuation-context @captured child)
+          sibling-context
+          (sci/retarget-continuation-context @captured sibling)
+          parent-resume
+          (sci/continuation-context-fn
+           @captured
+           (sci/eval-string* parent "resume!"))
+          child-resume
+          (sci/continuation-context-fn
+           child-context
+           (sci/eval-string* child "resume!"))
+          sibling-resume
+          (sci/continuation-context-fn
+           sibling-context
+           (sci/eval-string* sibling "resume!"))
+          child-unwind
+          (sci/continuation-context-fn
+           child-context
+           (sci/eval-string* child "unwind!"))]
+      (is (= [[:outer :inner] [:outer :parent] 1]
+             (parent-resume :parent)))
+      (is (= [[:outer :inner] [:outer :child] 1]
+             (child-resume :child)))
+      (is (= [[:outer :inner] [:outer :sibling] 1]
+             (sibling-resume :sibling)))
+      ;; The child capsule retains its own prior `set!`, then unwinds exactly
+      ;; one nested binding frame without touching parent or sibling boxes.
+      (is (= [:child :outer :root] (child-unwind)))
+      (is (= 1 (sci/eval-string* parent "@state")))
+      (is (= 1 (sci/eval-string* child "@state")))
+      (is (= 1 (sci/eval-string* sibling "@state")))
+      (is (= [:root :root]
+             (sci/eval-string* parent "[*outer* *inner*]")))
+      (is (= [:root :root]
+             (sci/eval-string* child "[*outer* *inner*]"))))))
+
+(deftest continuation-context-rejects-unrelated-lineage-test
+  (let [captured (atom nil)
+        parent (tu/forkable-init
+                {:bindings
+                 {'capture-continuation-context!
+                  #(reset! captured (sci/capture-continuation-context))}})
+        unrelated (tu/forkable-init {})]
+    (sci/eval-string* parent "(capture-continuation-context!)")
+    (is (thrown-with-msg?
+         #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+         #"unrelated SCI context"
+         (sci/retarget-continuation-context @captured unrelated)))))
+
+(deftest continuation-context-captures-binding-values-immediately-test
+  (let [captured (atom nil)
+        parent (tu/forkable-init
+                {:bindings
+                 {'capture-continuation-context!
+                  #(reset! captured (sci/capture-continuation-context))}})]
+    (sci/eval-string*
+     parent
+     "(def ^:dynamic *value* :root)
+      (defn capture-and-mutate! []
+        (binding [*value* :captured]
+          (capture-continuation-context!)
+          (set! *value* :after-capture)))")
+    (sci/eval-string* parent "(capture-and-mutate!)")
+    (let [child (sci/fork parent)
+          parent-resume
+          (sci/continuation-context-fn
+           @captured
+           (sci/eval-string* parent "(fn [] *value*)"))
+          child-resume
+          (sci/continuation-context-fn
+           (sci/retarget-continuation-context @captured child)
+           (sci/eval-string* child "(fn [] *value*)"))]
+      (is (= :captured (parent-resume)))
+      (is (= :captured (child-resume)))
+      (is (= :root (sci/eval-string* parent "*value*")))
+      (is (= :root (sci/eval-string* child "*value*"))))))
+
+(deftest explicit-context-captures-host-invoked-interpreted-function-test
+  (let [captured (atom nil)
+        context-holder (atom nil)
+        parent (tu/forkable-init
+                {:bindings
+                 {'capture-continuation-context!
+                  #(reset! captured
+                           (sci/capture-continuation-context @context-holder))}})]
+    (reset! context-holder parent)
+    (let [suspend
+          (sci/eval-string*
+           parent
+           "(def ^:dynamic *scope* :root)
+            (fn []
+              (binding [*scope* :host-invoked]
+                (capture-continuation-context!)))")]
+      ;; This interpreted closure runs after eval-string* has returned, which is
+      ;; how an embedding such as Spindel invokes an interpreted Spin body.
+      (suspend)
+      (let [child (sci/fork parent)
+            resume
+            (sci/continuation-context-fn
+             (sci/retarget-continuation-context @captured child)
+             (sci/eval-string* child "(fn [] *scope*)"))]
+        (is (= :host-invoked (resume)))
+        (is (= :root (sci/eval-string* parent "*scope*")))
+        (is (= :root (sci/eval-string* child "*scope*")))))))
+
+#?(:cljd nil
+   :clj
+   (deftest independent-interpreter-can-be-created-recursively-test
+     (let [outer
+           (sci/init
+            {:bindings
+             {'create-inner!
+              #(sci/with-detached-context
+                 (fn []
+                   (let [ctx (sci/init {})]
+                     (sci/eval-string*
+                      ctx
+                      "(ns nested.runtime)
+                       (defmacro answer [] 42)")
+                     (sci/eval-string* ctx "(nested.runtime/answer)"))))}})]
+       (is (= 42
+              (sci/eval-string*
+               outer
+               "(create-inner!)"))))))
+
 (deftest binding-api-test
   (when-not tu/native?
     (let [x (sci/new-dynamic-var 'x)]
       (is (= 1 (sci/binding [x 1]
                  (sci/eval-string "*x*" {:bindings {'*x* x}})))))))
+
+(deftest world-scoped-dynamic-binding-test
+  (let [parent-holder (atom nil)
+        parent (tu/forkable-init
+                {:bindings
+                 {'read-parent #(sci/eval-string* @parent-holder "late")}})]
+    (reset! parent-holder parent)
+    (sci/eval-string* parent
+                      "(def late 0) (def ^:dynamic shared 0)")
+    (let [child (sci/fork parent)]
+      (sci/eval-string* child
+                        "(alter-meta! #'late assoc :dynamic true)")
+      (testing "a child binding does not override a nested parent evaluation"
+        (is (= [9 0 9]
+               (sci/eval-string*
+                child
+                "(binding [late 9] [late (read-parent) late])"))))
+      (testing "host API bindings deliberately enter either world"
+        (let [shared (sci/eval-string* parent "#'shared")]
+          (is (= [7 7]
+                 (sci/with-bindings
+                   {shared 7}
+                   [(sci/eval-string* parent "shared")
+                    (sci/eval-string* child "shared")])))))
+      (is (= [0 0]
+             [(sci/eval-string* parent "late")
+              (sci/eval-string* child "late")])))))
 
 #_(deftest with-redefs-api-test
     (when-not tu/native?
@@ -202,6 +432,45 @@
        (is (= :failed (tu/eval* "(let [x (promise)]
                                    (deref x 1 :failed))"
                                 (addons/future {})))))))
+
+#?(:cljd nil
+   :clj
+   (deftest forked-promise-state-test
+     (when-not tu/native?
+       (let [entered (promise)
+             parent (tu/forkable-init
+                     (-> (addons/future {})
+                         (assoc :bindings
+                                {'mark-entered
+                                 #(deliver entered true)})))]
+         (sci/eval-string*
+          parent
+          "(def pending (promise))
+           (def blocked (promise))
+           (def completed (promise))
+           (deliver completed :done)")
+         (let [child (sci/fork parent)]
+           (is (= [false true :done :child :child]
+                  (sci/eval-string*
+                   child
+                   "[(realized? pending)
+                     (realized? completed)
+                     @completed
+                     @(deliver pending :child)
+                     @(deliver pending :ignored)]")))
+           (is (= [false :timeout]
+                  (sci/eval-string*
+                   parent
+                   "[(realized? pending) (deref pending 1 :timeout)]")))
+           (is (= [:parent :child]
+                  [(sci/eval-string* parent "@(deliver pending :parent)")
+                   (sci/eval-string* child "@pending")]))
+           (let [waiting (sci/eval-string*
+                          child
+                          "(future (mark-entered) @blocked)")]
+             (is (= true (deref entered 1000 ::timeout)))
+             (sci/eval-string* child "(deliver blocked :released)")
+             (is (= :released (deref waiting 1000 ::timeout)))))))))
 
 (deftest def-returns-var-test
   (is (= "#'user/x" (eval* "(str (def x 1))")))
@@ -287,6 +556,35 @@
   (is (str/starts-with?
        (sci/with-out-str (sci/eval-string "(def x 1) (add-watch #'x :foo (fn [k r o n] (prn :o o :n n))) (alter-var-root #'x (constantly 5))"))
        ":o 1 :n 5")))
+
+(deftest forked-var-watch-test
+  (let [parent (tu/forkable-init nil)]
+    (sci/eval-string*
+     parent
+     "(def effects (atom []))
+      (def watched 0)
+      (add-watch #'watched :inherited
+                 (fn [_ _ old new]
+                   (swap! effects conj [:inherited old new])))")
+    (let [child (sci/fork parent)]
+      (sci/eval-string*
+       child
+       "(remove-watch #'watched :inherited)
+        (add-watch #'watched :child
+                   (fn [_ _ old new]
+                     (swap! effects conj [:child old new])))")
+      (is (= [1 [[:inherited 0 1]]]
+             (sci/eval-string*
+              parent
+              "(alter-var-root #'watched inc) [watched @effects]")))
+      (is (= [0 []]
+             (sci/eval-string* child "[watched @effects]")))
+      (is (= [1 [[:child 0 1]]]
+             (sci/eval-string*
+              child
+              "(alter-var-root #'watched inc) [watched @effects]")))
+      (is (= [1 [[:inherited 0 1]]]
+             (sci/eval-string* parent "[watched @effects]"))))))
 
 #?(:cljd nil
    :clj

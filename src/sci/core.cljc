@@ -13,7 +13,10 @@
    [edamame.core :as edamame]
    [edamame.impl.parser]
    [sci.ctx-store :as store]
+   [sci.fork :as fork]
    [sci.impl.callstack :as cs]
+   [sci.impl.execution :as execution]
+   [sci.impl.fns :as fns]
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
    [sci.impl.macros :as macros]
@@ -23,6 +26,7 @@
    [sci.impl.types :as t]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]
+   [sci.impl.world :as world]
    [sci.lang])
   #?(:cljs (:require-macros
             [sci.core :refer [with-bindings with-out-str copy-var
@@ -45,7 +49,7 @@
   ([name init-val] (new-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :name (utils/unqualify-symbol name))]
-     (sci.lang/->Var init-val name meta false false nil (:ns meta)))))
+     (sci.lang/->Var init-val name meta false false nil (:ns meta) false))))
 
 (defn new-dynamic-var
   "Same as new-var but adds :dynamic true to meta."
@@ -54,12 +58,54 @@
   ([name init-val] (new-dynamic-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :dynamic true :name (utils/unqualify-symbol name))]
-     (sci.lang/->Var init-val name meta false false nil (:ns meta)))))
+     (sci.lang/->Var init-val name meta false false nil (:ns meta) false))))
+
+(defn with-detached-context
+  "Invoke zero-argument `f` outside the currently executing SCI context.
+
+  Embeddings use this host boundary when interpreted code recursively creates
+  an independent SCI interpreter. The caller's active world and dynamic
+  binding frame are restored even when `f` throws. Ordinary nested evaluation
+  of an existing context does not need this function."
+  [f]
+  (store/with-ctx nil
+    (execution/call-with-detached-state f)))
+
+(defn call-with-context
+  "Invoke zero-argument host thunk `f` with `ctx` selected. Embeddings use
+  this boundary when a stable inherited value must be read or mutated in a
+  particular forked world."
+  [ctx f]
+  (world/call-with-context ctx f))
 
 (defn set!
   "Establish thread local binding of dynamic var"
   [dynamic-var v]
   (t/setVal dynamic-var v))
+
+(defn capture-continuation-context
+  "Capture the active SCI context and dynamic bindings for later continuation
+  resumption. Must be called from managed SCI evaluation. The returned token is
+  opaque; use `continuation-context-fn` to resume through it.
+
+  The explicit `ctx` arity is for host embedding boundaries invoked through an
+  interpreted function after the top-level evaluation has returned."
+  ([]
+   (vars/capture-continuation-context))
+  ([ctx]
+   (vars/capture-continuation-context ctx)))
+
+(defn retarget-continuation-context
+  "Copy a captured continuation context for `target-ctx`, which must belong to
+  the same SCI lineage. The copy has independent dynamic binding boxes."
+  [continuation-context target-ctx]
+  (vars/retarget-continuation-context continuation-context target-ctx))
+
+(defn continuation-context-fn
+  "Return a function that invokes `f` with the SCI world and dynamic bindings
+  represented by `continuation-context`."
+  [continuation-context f]
+  (vars/continuation-context-fn continuation-context f))
 
 (defn new-macro-var
   "Same as new-var but adds :macro true to meta as well
@@ -70,7 +116,7 @@
      (sci.lang/->Var
       (vary-meta init-val
                  assoc :sci/macro true)
-      name meta false false nil (:ns meta)))))
+      name meta false false nil (:ns meta) false))))
 
 (macros/deftime
   (defmacro copy-var
@@ -250,11 +296,53 @@
   "Atomically alters the root binding of sci var v by applying f to its
   current value plus any args."
   ([v f]
-   (store/with-ctx (assoc store/*ctx* :unrestricted true)
-     (vars/alter-var-root v f)))
+   (world/call-with-var-context
+    v
+    (fn []
+      (let [ctx (assoc store/*ctx* :unrestricted true)]
+        (store/with-ctx ctx
+          (world/with-active-world ctx #(vars/alter-var-root v f)))))))
   ([v f & args]
-   (store/with-ctx (assoc store/*ctx* :unrestricted true)
-     (apply vars/alter-var-root v f args))))
+   (world/call-with-var-context
+    v
+    (fn []
+      (let [ctx (assoc store/*ctx* :unrestricted true)]
+        (store/with-ctx ctx
+          (world/with-active-world
+           ctx #(apply vars/alter-var-root v f args))))))))
+
+(defn alter-var-meta!
+  "Atomically alter metadata for SCI Var `v` in its home world, or in the
+  world selected by `call-with-context`. This is the portable host boundary;
+  ClojureScript's native `alter-meta!` writes object fields directly."
+  [v f & args]
+  (world/call-with-var-context
+   v
+   (fn []
+     (let [current (meta v)]
+       (vars/with-writeable-var v current
+         (if (world/current-world)
+           (let [m (world/alter-var-meta! v current f args)]
+             (when (world/primary-world?)
+               (utils/reset-meta!* v m))
+             m)
+           (apply #?(:cljd utils/alter-meta!* :default c/alter-meta!)
+                  v f args)))))))
+
+(defn reset-var-meta!
+  "Reset metadata for SCI Var `v` in its home or explicitly selected world."
+  [v m]
+  (world/call-with-var-context
+   v
+   (fn []
+     (let [current (meta v)]
+       (vars/with-writeable-var v current
+         (if (world/current-world)
+           (do (world/reset-var-meta! v m)
+               (when (world/primary-world?)
+                 (utils/reset-meta!* v m))
+               m)
+           (utils/reset-meta!* v m)))))))
 
 (defn intern
   "Finds or creates a sci var named by the symbol name in the namespace
@@ -264,10 +352,10 @@
   sci var."
   ([ctx sci-ns name]
    (store/with-ctx ctx
-     (namespaces/sci-intern sci-ns name)))
+     (world/with-active-world ctx #(namespaces/sci-intern sci-ns name))))
   ([ctx sci-ns name val]
    (store/with-ctx ctx
-     (namespaces/sci-intern sci-ns name val))))
+     (world/with-active-world ctx #(namespaces/sci-intern sci-ns name val)))))
 
 (defn eval-string
   "Evaluates string `s` as one or multiple Clojure expressions using the Small Clojure Interpreter.
@@ -296,6 +384,15 @@
   Applies only to this context: a context created during an unrestricted
   evaluation is sandboxed unless it also gets this option.
 
+  - `:fork-fn`: optional one-argument host function used by `fork` to copy
+  values held in SCI world cells that do not implement `sci.fork/Forkable` and
+  need application-specific isolation. SCI-owned mutable primitives are
+  already world-relative and retain identity.
+
+  - `:runtime-mode`: `:standard` (the default) retains SCI's direct hot paths.
+  `:forkable` enables isolated runtime worlds for Vars, dynamic bindings and
+  SCI-owned mutable primitives.
+
   - `:bindings`: DEPRECATED - `:bindings x` is the same as `:namespaces {'user x}`."
   ([s] (eval-string s nil))
   ([s opts]
@@ -316,17 +413,43 @@
   (opts/merge-opts ctx opts))
 
 (defn fork
-  "Forks a context (as produced with `init`) into a new context. Any new
-  vars created in the new context won't be visible in the original
-  context."
-  [ctx]
-  (update ctx :env (fn [env] (atom @env))))
+  "Forks a context (as produced with `init`) into an isolated runtime world.
+
+  Existing SCI Vars and SCI-created mutable primitives retain identity, but
+  their values diverge after the fork. Host values may implement
+  `sci.fork/Forkable`; `opts` may contain `:fork-fn`, which overrides the
+  context's fallback function for other application-specific host values."
+  ([ctx]
+   (fork ctx nil))
+  ([ctx opts]
+   (if-let [source-world (:sci.impl/world ctx)]
+     (let [fork-fn (if (contains? opts :fork-fn)
+                     (:fork-fn opts)
+                     (:fork-fn ctx))
+           fork-value (fork/value-forker fork-fn)
+           forked-world (world/fork-world
+                         source-world fork-value
+                         #(cond
+                            (utils/var? %) (vars/getRawRoot %)
+                            (utils/namespace? %) (meta %)
+                            (utils/sci-type? %) (t/getVal %)
+                            :else (c/deref %))
+                         meta)]
+       (assoc ctx
+              :env (atom @(:env ctx))
+              :fork-fn fork-fn
+              :sci.impl/primary? false
+              :sci.impl/world forked-world
+              :sci.impl/read-world (world/read-world forked-world false)))
+     ;; Preserve the historical namespace-environment fork for standard
+     ;; contexts. Full live-state isolation is opt-in via :runtime-mode.
+     (update ctx :env (fn [env] (atom @env))))))
 
 (defn eval-string*
   "Evaluates string `s` in the context of `ctx` (as produced with
   `init`)."
   [ctx s]
-  (sci.impl.interpreter/eval-string* ctx s))
+  (fns/contextualize ctx (sci.impl.interpreter/eval-string* ctx s)))
 
 (defn eval-string+
   "Evaluates string `s` in the context of `ctx` (as produced with
@@ -341,7 +464,9 @@
   ([ctx s]
    (eval-string+ ctx s nil))
   ([ctx s opts]
-   (sci.impl.interpreter/eval-string* ctx s (assoc opts :sci.impl/eval-string+ true))))
+   (update (sci.impl.interpreter/eval-string*
+            ctx s (assoc opts :sci.impl/eval-string+ true))
+           :val #(fns/contextualize ctx %))))
 
 (defn create-ns
   "Creates namespace object. Can be used in var metadata."
@@ -397,7 +522,7 @@
   `sci/with-bindings.`"
   [ctx form]
   (let [ctx (assoc ctx :id (or (:id ctx) (gensym)))]
-    (i/eval-form ctx form)))
+    (fns/contextualize ctx (i/eval-form ctx form))))
 
 (defn stacktrace
   "Returns list of stacktrace element maps from exception, if available."
@@ -653,6 +778,15 @@
   `ctx`. Returns mutated context."
   [ctx ns-name ns-map]
   (swap! (:env ctx) update-in [:namespaces ns-name] merge ns-map)
+  (when (:sci.impl/world ctx)
+    (store/with-ctx ctx
+      (world/with-active-world
+        ctx
+        #(doseq [[_ v] ns-map
+                 :when (and (utils/var? v)
+                            (not (world/registered? (:sci.impl/world ctx) v)))]
+           (world/register-var! v (vars/getRawRoot v) (meta v)
+                                (vars/getRawWatches v))))))
   ctx)
 
 (defn find-ns

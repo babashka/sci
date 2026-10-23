@@ -279,6 +279,61 @@
   (is (= "user.Dude" (tu/eval* "(defrecord Dude []) (str Dude)" {})))
   (is (= "user.Dude" (tu/eval* "(deftype Dude []) (str Dude)" {}))))
 
+(deftest forked-deftype-instance-state-test
+  (let [parent (tu/forkable-init nil)]
+    (sci/eval-string*
+     parent
+     "(defprotocol IForkBox (bump! [_]) (box-value [_]))
+      (deftype ForkBox [^:volatile-mutable value]
+        IForkBox
+        (bump! [this] (set! value (inc value)) this)
+        (box-value [_] value))
+      (def box (->ForkBox 1))
+      (def box-alias box)")
+    (let [parent-box (sci/eval-string* parent "box")
+          child (sci/fork parent)
+          child-box (sci/eval-string* child "box")]
+      ;; CLJS instances must move to the child Type's cloned native-protocol
+      ;; prototype. JVM/CLJD can retain the stable managed handle itself.
+      (is (#?(:cljs not :default identity)
+           (identical? parent-box child-box)))
+      (is (true? (sci/eval-string* child "(identical? box box-alias)")))
+      (is (= 2 (sci/eval-string* child "(box-value (bump! box))")))
+      (is (= 1 (sci/eval-string* parent "(box-value box)"))))))
+
+(deftest forked-captured-deftype-state-test
+  (let [parent (tu/forkable-init nil)]
+    (sci/eval-string*
+     parent
+     "(defprotocol ICapturedForkBox (captured-bump! [_]))
+      (deftype CapturedForkBox [^:volatile-mutable value]
+        ICapturedForkBox
+        (captured-bump! [this]
+          (set! value (inc value))
+          value))
+      (def captured-bump
+        (let [box (->CapturedForkBox 0)]
+          (fn [] (captured-bump! box))))")
+    (let [child (sci/fork parent)]
+      (is (= [1 2]
+             (sci/eval-string* child "[(captured-bump) (captured-bump)]")))
+      (is (= 1 (sci/eval-string* parent "(captured-bump)"))))))
+
+(deftest forked-type-metadata-test
+  (let [parent (tu/forkable-init nil)]
+    (sci/eval-string*
+     parent
+     "(deftype ForkMeta [])
+      (alter-meta! ForkMeta assoc :branch :parent)")
+    (let [child (sci/fork parent)]
+      (is (= :child
+             (sci/eval-string*
+              child
+              "(alter-meta! ForkMeta assoc :branch :child)
+               (:branch (meta ForkMeta))")))
+      (is (= :parent
+             (sci/eval-string* parent "(:branch (meta ForkMeta))"))))))
+
 (deftest equiv-test
   (let [prog "(defrecord Foo [a]) (defrecord Bar [a]) [(= (->Foo 1) (->Foo 1)) (= (->Foo 1) (->Bar 1)) (= (->Foo 1) {:a 1})]"]
     (is (= [true false false] (tu/eval* prog {})))))
