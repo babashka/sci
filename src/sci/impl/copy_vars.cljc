@@ -105,6 +105,8 @@
           file (:file m)
           line (:line m)
           column (:column m)
+          added (:added m)
+          deprecated (:deprecated m)
           varm (cond-> {:name (or nm (list 'quote sym))}
                  macro (assoc :macro true)
                  inline (assoc :sci.impl/inlined (:inlined opts fqsym))
@@ -120,7 +122,9 @@
                  fast-path (assoc :sci.impl/fast-path (list 'quote sym))
                  (when-not elide-vars file) (assoc :file file)
                  (when-not elide-vars line) (assoc :line line)
-                 (when-not elide-vars column) (assoc :column column))]
+                 (when-not elide-vars column) (assoc :column column)
+                 (when-not elide-vars added) (assoc :added added)
+                 (when-not elide-vars deprecated) (assoc :deprecated deprecated))]
       varm)))
 
 ;; separate deftime form, cljd host eval does not split top-level do

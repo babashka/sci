@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Copy `:added` and `:deprecated` into the metadata of built-in vars
 - `clojure.repl/print-doc` is a private var, so `ns-interns` of `clojure.repl` returns only vars
 - `read` at the end of a `LineNumberingPushbackReader` reads the underlying stream once
 - `clojure.repl/doc` on `&`, `catch` and `finally` prints the docs of `fn` and `try`
