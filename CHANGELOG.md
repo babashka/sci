@@ -33,7 +33,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - `instance?` on a marker protocol implemented in a `deftype` body returns `true`, on the JVM
 - `satisfies?` on a marker protocol implemented in a `deftype` body returns `true`
 
-## 0.15.39
+## 0.15.59
 
 - Fix [babashka#1874](https://github.com/babashka/babashka/issues/1874): `defmethod`, `prefer-method`, `remove-method` and `get-method` with a sci interface such as `clojure.lang.IDeref` dispatch on the class
 - Fix interop with a `false` argument: `(Boolean. false)` picked the `String` overload
