@@ -157,23 +157,18 @@
     ;; pending, let it win over a non-interrupt exception from the finally body.
     (if (nil? finally)
       (eval-try-body ctx bindings body catches sci-error)
-      (let [pending (volatile! nil)
-            had-ex  (volatile! false)
-            v (try (eval-try-body ctx bindings body catches sci-error)
+      (let [v (try (eval-try-body ctx bindings body catches sci-error)
                    (catch #?(:cljd Object :clj Throwable :cljs :default) e
-                     (vreset! pending e)
-                     (vreset! had-ex true)
-                     nil))]
-        (try
-          (types/eval finally ctx bindings)
-          (catch #?(:cljd Object :clj Throwable :cljs :default) fe
-            (if (and @had-ex
-                     (utils/interrupt-ex? @pending)
-                     (not (utils/interrupt-ex? fe)))
-              ;; swallow the finally's exception; the interrupt rethrown below wins
-              nil
-              (throw fe))))
-        (if @had-ex (throw @pending) v)))))
+                     (try
+                       (types/eval finally ctx bindings)
+                       (catch #?(:cljd Object :clj Throwable :cljs :default) fe
+                         ;; swallow the finally's exception; the interrupt rethrown below wins
+                         (when-not (and (utils/interrupt-ex? e)
+                                        (not (utils/interrupt-ex? fe)))
+                           (throw fe))))
+                     (throw e)))]
+        (types/eval finally ctx bindings)
+        v))))
 
 ;;;; Interop
 
