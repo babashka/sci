@@ -1228,7 +1228,11 @@
 
 (deftest metadata-on-var-test
   (is (= 'x (eval* "(def x) (:name (meta #'x))")))
-  (is (= 'foo (eval* "(ns foo) (declare x) (def x 2) (ns-name (:ns (meta #'x)))"))))
+  (is (= 'foo (eval* "(ns foo) (declare x) (def x 2) (ns-name (:ns (meta #'x)))")))
+  #?(:clj
+     (testing "meta of replicate includes :added and :deprecated"
+       (is (= {:added "1.0" :deprecated "1.3"}
+              (eval* "(select-keys (meta #'replicate) [:added :deprecated])"))))))
 
 (deftest eval-colls-once
   ;; #222: note: this only failed with clojure 1.10.1!
