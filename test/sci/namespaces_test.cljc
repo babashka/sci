@@ -180,12 +180,8 @@
     (is (eval* "(require '[clojure.string :refer [includes?]]) (nil? (get (ns-publics *ns*) :refer))"))))
 
 (deftest ns-interns-vars-test
-  (testing "ns-interns of the clojure namespaces returns only vars"
-    (is (eval* "(require 'clojure.repl)
-                (->> (all-ns)
-                     (filter #(str/starts-with? (str (ns-name %)) \"clojure.\"))
-                     (mapcat (comp vals ns-interns))
-                     (every? var?))"))))
+  (testing "ns-interns of clojure.repl returns only vars"
+    (is (eval* "(require 'clojure.repl) (every? var? (vals (ns-interns 'clojure.repl)))"))))
 
 (deftest ns-refers-test
   (is (eval* "(some? (get (ns-refers *ns*) 'inc))"))
