@@ -33,10 +33,8 @@
 (defn interpreted-fn
   "Mark an SCI-interpreted function so a public evaluation boundary can bind
   it to the world from which the host obtained it."
-  ([f]
-   (interpreted-fn f nil))
-  ([f shape]
-   (register-function! f {:shape shape})))
+  [f shape]
+  (register-function! f {:shape shape}))
 
 (defmacro context-wrapper [shape ctx original]
   (let [fixed-clause
@@ -233,7 +231,7 @@
                          `(let [~'active-ctx (world/active-ctx ~'ctx)]
                             ~invoke-form)
                          invoke-form))))))]
-     `(if (:sci.impl/world ~'ctx)
+     `(if ~'forkable?
         ~(emit true)
         ~(emit false)))))
 
@@ -253,7 +251,7 @@
     body
     invoc-size
     nsm vararg-idx
-    #?(:cljs this-as-idx)]
+    #?(:cljs this-as-idx) forkable?]
    (let [
          f (if vararg-idx
              (case #?(:cljd fixed-arity
@@ -308,8 +306,7 @@
                ;; ClojureDart's `case` emitter expects a `let`-shaped default;
                ;; keeping the mode dispatch inside it also avoids duplicating
                ;; this test on every invocation.
-               (let [forkable? (:sci.impl/world ctx)]
-                 (if forkable?
+               (if forkable?
                    (let [recur# recur]
                      (fn arity-many [& args]
                        (let [active-ctx (world/active-ctx ctx)]
@@ -353,10 +350,12 @@
                            (let [ret (types/eval body ctx invoc-array)]
                              (if (identical? recur# ret)
                                (recur)
-                               ret))))))))))]
-     (interpreted-fn f {:variadic (when vararg-idx fixed-arity)
-                        :fixed-many? (and (nil? vararg-idx)
-                                          (> fixed-arity 20))}))))
+                                    ret)))))))))]
+     (if forkable?
+       (interpreted-fn f {:variadic (when vararg-idx fixed-arity)
+                          :fixed-many? (and (nil? vararg-idx)
+                                            (> fixed-arity 20))})
+       f))))
 
 (defn multi-arity-dispatch
   "Returns the fn for a multi-arity fn*. fixed-fns is an array of the fixed

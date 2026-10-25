@@ -396,7 +396,7 @@
 
 (defn fn-body-maker
   "Returns (fn [ctx enclosed-array]) that makes the fn for one arity body."
-  [fn-body fn-name nsm macro?]
+  [fn-body fn-name nsm macro? forkable?]
   (let [fixed-arity (:fixed-arity fn-body)
         copy-enclosed->invocation (:copy-enclosed->invocation fn-body)
         invoc-size (:invoc-size fn-body)
@@ -405,15 +405,19 @@
         #?@(:cljs [this-as-idx (:this-as-idx fn-body)])
         interpreted (fn [ctx enclosed-array]
                       (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
-                               body invoc-size nsm vararg-idx #?(:cljs this-as-idx)))]
+                               body invoc-size nsm vararg-idx #?(:cljs this-as-idx) forkable?))]
     #?(:cljs (jit/fn-maker fn-body interpreted)
        :default interpreted)))
 
-(defn single-arity-fn [bindings-fn fn-body fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro?
+(defn single-arity-fn [bindings-fn fn-body fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro? forkable?
                        #?@(:cljs [capture-pairs enclosed-array-cnt])]
-  (let [maker (fn-body-maker fn-body fn-name nsm macro?)
+  (let [maker (fn-body-maker fn-body fn-name nsm macro? forkable?)
         fixed-arity (:fixed-arity fn-body)
         vararg-idx (:vararg-idx fn-body)
+        ;; fun already registers its JVM/Dart result. Metadata creates a new
+        ;; function object; CLJS code generation can bypass fun altogether.
+        register-result? (and forkable?
+                              #?(:cljs true :default (or fn-meta macro?)))
         fn-shape {:variadic (when vararg-idx fixed-arity)
                   :fixed-many? (and (nil? vararg-idx)
                                     (> fixed-arity 20))}
@@ -435,7 +439,9 @@
              (aset #?(:cljd ^List enclosed-array :default ^objects enclosed-array)
                    self-ref-in-enclosed-idx
                    f))
-           (fns/interpreted-fn f fn-shape))
+           (if register-result?
+             (fns/interpreted-fn f fn-shape)
+             f))
          nil)]
     #?(:cljs
        ;; fn-creation ast: the emitter builds the enclosed array from its
@@ -602,9 +608,10 @@
         single-arity (when (= 1 (count bodies))
                        (first bodies))
         nsm (utils/current-ns-name)
+        forkable? (boolean (:sci.impl/world ctx))
         self-ref-in-enclosed-idx (some-> enclosed-array-cnt dec)
         ret-node (if single-arity
-                   (single-arity-fn bindings-fn single-arity fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro?
+                   (single-arity-fn bindings-fn single-arity fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro? forkable?
                                     #?@(:cljs [capture-pairs enclosed-array-cnt]))
                    (let [fixed-bodies (remove :var-arg-name bodies)
                          variadic-body (first (filter :var-arg-name bodies))
@@ -615,7 +622,7 @@
                          fill-fixed (reduce
                                      (fn [fill fn-body]
                                        (let [arity (:fixed-arity fn-body)
-                                             maker (fn-body-maker fn-body fn-name nsm macro?)]
+                                             maker (fn-body-maker fn-body fn-name nsm macro? forkable?)]
                                          (fn [ctx enclosed-array fixed-fns]
                                            (fill ctx enclosed-array fixed-fns)
                                            (aset #?(:cljd ^List fixed-fns :default ^objects fixed-fns)
@@ -623,7 +630,7 @@
                                      (fn [_ctx _enclosed-array _fixed-fns] nil)
                                      fixed-bodies)
                          variadic-maker (when variadic-body
-                                          (fn-body-maker variadic-body fn-name nsm macro?))
+                                          (fn-body-maker variadic-body fn-name nsm macro? forkable?))
                          variadic-min (when variadic-body (:fixed-arity variadic-body))
                          fn-shape {:variadic variadic-min
                                    :fixed-many? (boolean
@@ -657,7 +664,9 @@
                           (aset #?(:cljd ^List enclosed-array :default ^objects enclosed-array)
                                 self-ref-in-enclosed-idx
                                 f))
-                        (fns/interpreted-fn f fn-shape))
+                        (if forkable?
+                          (fns/interpreted-fn f fn-shape)
+                          f))
                       nil)]
                      #?(:cljs
                         ;; same fn-creation ast as single-arity-fn
@@ -671,7 +680,9 @@
                                         (aset ^objects enclosed-array self-ref-in-enclosed-idx f))
                                       ;; the dispatch fn is not made by fns/fun,
                                       ;; mark it like the interpreted node does
-                                      (fns/interpreted-fn f fn-shape)))
+                                      (if (:sci.impl/world ctx)
+                                        (fns/interpreted-fn f fn-shape)
+                                        f)))
                             capture-pairs enclosed-array-cnt]))
                         :default node)))
         tag (:tag fn-expr-m)

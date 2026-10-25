@@ -308,27 +308,52 @@
        :cljs (.get bmap sci-var))))
 
 (defn- binding-frame-fn [frame ctx f]
-  (let [invoke (fn [args]
-                 (let [previous (get-thread-binding-frame)]
-                   (try
-                     (reset-thread-binding-frame frame)
-                     (if (:sci.impl/world ctx)
+  (if (:sci.impl/world ctx)
+    (let [invoke (fn [args]
+                   (let [previous (get-thread-binding-frame)]
+                     (try
+                       (reset-thread-binding-frame frame)
                        (store/with-ctx ctx
                          (world/with-active-world ctx #(apply f args)))
-                       (apply f args))
-                     (finally
-                       (reset-thread-binding-frame previous)))))]
+                       (finally
+                         (reset-thread-binding-frame previous)))))]
+      (fn
+        ([] (invoke nil))
+        ([x] (invoke [x]))
+        ([x y] (invoke [x y]))
+        ([x y z] (invoke [x y z]))
+        ([x y z & args] (invoke (list* x y z args)))))
     (fn
       ([]
-       (invoke nil))
+       (let [previous (get-thread-binding-frame)]
+         (try
+           (reset-thread-binding-frame frame)
+           (f)
+           (finally (reset-thread-binding-frame previous)))))
       ([x]
-       (invoke [x]))
+       (let [previous (get-thread-binding-frame)]
+         (try
+           (reset-thread-binding-frame frame)
+           (f x)
+           (finally (reset-thread-binding-frame previous)))))
       ([x y]
-       (invoke [x y]))
+       (let [previous (get-thread-binding-frame)]
+         (try
+           (reset-thread-binding-frame frame)
+           (f x y)
+           (finally (reset-thread-binding-frame previous)))))
       ([x y z]
-       (invoke [x y z]))
+       (let [previous (get-thread-binding-frame)]
+         (try
+           (reset-thread-binding-frame frame)
+           (f x y z)
+           (finally (reset-thread-binding-frame previous)))))
       ([x y z & args]
-       (invoke (list* x y z args))))))
+       (let [previous (get-thread-binding-frame)]
+         (try
+           (reset-thread-binding-frame frame)
+           (apply f x y z args)
+           (finally (reset-thread-binding-frame previous))))))))
 
 (defn continuation-context-fn
   "Wrap `f` so every invocation restores a captured continuation context."
@@ -337,11 +362,33 @@
                     (.-ctx continuation-context)
                     f))
 
+(defn- reset-standard-conveyor-frame! [^Frame frame]
+  (let [state #?(:cljd (execution/current-state)
+                 :clj (.get ^ThreadLocal execution/current)
+                 :cljs (execution/current-state))]
+    (if (and (nil? (.-scope frame))
+             (nil? (execution/binding-scope state)))
+      (let [bindings (.-bindings frame)]
+        (execution/set-binding-frame! state frame)
+        (execution/set-scope-bindings! state {nil bindings})
+        (execution/set-active-bindings! state bindings))
+      (reset-thread-binding-frame frame))))
+
 (defn binding-conveyor-fn
   "Convey the current binding values to an independent task. The shallow
   frame deliberately cannot pop scopes owned by the submitting execution."
   [f]
-  (binding-frame-fn (clone-thread-binding-frame) store/*ctx* f))
+  (let [frame (clone-thread-binding-frame)]
+    (if (:sci.impl/world store/*ctx*)
+      (binding-frame-fn frame store/*ctx* f)
+      (fn
+        ([] (reset-standard-conveyor-frame! frame) (f))
+        ([x] (reset-standard-conveyor-frame! frame) (f x))
+        ([x y] (reset-standard-conveyor-frame! frame) (f x y))
+        ([x y z] (reset-standard-conveyor-frame! frame) (f x y z))
+        ([x y z & args]
+         (reset-standard-conveyor-frame! frame)
+         (apply f x y z args))))))
 
 (defn binding-continuation-fn
   "Convey the persistent binding frame chain to a continuation of the current

@@ -2342,13 +2342,19 @@
     (is (= 2 (sci/eval-string* (sci/merge-opts ctx {}) "#?(:clj 1 :cljs 2)")))))
 
 (deftest merge-opts-preserves-permissions-test
-  (let [ctx (sci/merge-opts (sci/init {:deny '[load-string]}) {:interrupt-fn (fn [])})]
-    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error) #"not allowed"
-                          (sci/eval-string* ctx "(load-string \"(+ 1 2)\")"))))
-  (let [ctx (sci/merge-opts (sci/init {:allow '[+]}) {:interrupt-fn (fn [])})]
-    (is (= 3 (sci/eval-string* ctx "(+ 1 2)")))
-    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error) #"not allowed"
-                          (sci/eval-string* ctx "(inc 1)")))))
+  (doseq [runtime-mode [:standard :forkable]]
+    (testing (str "permissions survive merge-opts in " runtime-mode " mode")
+      (let [ctx (sci/merge-opts (sci/init {:runtime-mode runtime-mode
+                                           :deny '[load-string]})
+                                {:interrupt-fn (fn [])})]
+        (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error) #"not allowed"
+                              (sci/eval-string* ctx "(load-string \"(+ 1 2)\")"))))
+      (let [ctx (sci/merge-opts (sci/init {:runtime-mode runtime-mode
+                                           :allow '[+]})
+                                {:interrupt-fn (fn [])})]
+        (is (= 3 (sci/eval-string* ctx "(+ 1 2)")))
+        (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error) #"not allowed"
+                              (sci/eval-string* ctx "(inc 1)")))))))
 
 (deftest dynamic-meta-def-test
   (is (= false (eval* "(def ^{:private (if (odd? 1) false true)} foo) (:private (meta #'foo))")))
