@@ -364,8 +364,8 @@
         fork-fn (if (contains? opts :fork-fn) fork-fn (:fork-fn ctx))
         ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny)
                           :interrupt-fn interrupt-fn)
-                   :allow (when allow (process-permissions (:allow ctx) allow))
-                   :deny (when deny (process-permissions (:deny ctx) deny))
+                   :allow (if allow (process-permissions (:allow ctx) allow) (:allow ctx))
+                   :deny (if deny (process-permissions (:deny ctx) deny) (:deny ctx))
                    :reify-fn reify-fn
                    :deftype-fn deftype-fn
                    :unrestricted unrestricted
