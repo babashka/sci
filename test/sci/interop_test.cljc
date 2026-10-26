@@ -255,13 +255,20 @@
          (is (= 42 (sci/eval-string "(Integer/parseInt \"42\")" opts)))
          (is (= :forty-two (sci/eval-string "(Integer/valueOf \"42\")" opts)))
          (is (thrown-with-msg? Exception #"Method toHexString on java.lang.Integer not allowed"
-                               (sci/eval-string "(Integer/toHexString 255)" opts)))))
+                               (sci/eval-string "(Integer/toHexString 255)" opts)))
+         (testing "a static method as a value obeys the same config"
+           (is (= [42] (sci/eval-string "(mapv Integer/parseInt [\"42\"])" opts)))
+           (is (= :forty-two (sci/eval-string "(let [f Integer/valueOf] (f \"42\"))" opts)))
+           (is (thrown-with-msg? Exception #"Method toHexString on java.lang.Integer not allowed"
+                                 (sci/eval-string "(let [f Integer/toHexString] (f 255))" opts))))))
      (testing "static override present, unlisted static still reflects without :closed"
        (let [opts {:classes {'java.lang.Integer
                              {:class Integer
                               :static-methods {'valueOf (fn [_Class _s] :forty-two)}}}}]
          (is (= :forty-two (sci/eval-string "(Integer/valueOf \"42\")" opts)))
-         (is (= "ff" (sci/eval-string "(Integer/toHexString 255)" opts)))))
+         (is (= "ff" (sci/eval-string "(Integer/toHexString 255)" opts)))
+         (is (= :forty-two (sci/eval-string "(let [f Integer/valueOf] (f \"42\"))" opts)))
+         (is (= "ff" (sci/eval-string "(let [f Integer/toHexString] (f 255))" opts)))))
      (testing "section-level :closed closes just that section"
        (let [opts {:classes {'java.lang.Integer
                              {:class Integer
