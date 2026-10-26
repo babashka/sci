@@ -266,7 +266,9 @@
                              {:class Integer
                               :static-methods {'valueOf (fn [_Class _s] :forty-two)}}}}]
          (is (= :forty-two (sci/eval-string "(Integer/valueOf \"42\")" opts)))
-         (is (= "ff" (sci/eval-string "(Integer/toHexString 255)" opts)))))
+         (is (= "ff" (sci/eval-string "(Integer/toHexString 255)" opts)))
+         (is (= :forty-two (sci/eval-string "(let [f Integer/valueOf] (f \"42\"))" opts)))
+         (is (= "ff" (sci/eval-string "(let [f Integer/toHexString] (f 255))" opts)))))
      (testing "section-level :closed closes just that section"
        (let [opts {:classes {'java.lang.Integer
                              {:class Integer
