@@ -8,7 +8,7 @@
 
 ; Author: Frantisek Sodomka
 
-;; Destructuring and merge tests from clojure/clojure data_structures.clj at 98d735fab02f337cee654cb0629bddc09883a75a, run in sci.
+;; Destructuring and merge tests from clojure/clojure data_structures.clj at 33fb064dee4cf8decdae71ed93f1a6262f7a4c28, run in sci.
 ;; Regenerate with: bb script/sync_clojure_destructure_tests.clj <clojure-checkout> <sha>
 
 (ns sci.clojure-destructure-test
@@ -97,7 +97,7 @@
             (is (= b 2))
             (is (thrown? Exception (let [{:keys! [b & :foo/c]} (dissoc sample-map :b)] b)))
             (is (thrown? Exception (let [{:keys! [b & :foo/c]} (dissoc sample-map :foo/c)] b)))
-            (is (= 1 (let [{:foo/keys! [aa & :bb]} sample-map2] aa)))
+            (is (= 1 (let [{:foo/keys! [aa & :bb]} (assoc sample-map2 :foo/bb 42)] aa)))
             (is (= aa 1))
             (is (= 1 (let [{:keys! [::a & ::b]} {::a 1 , ::b 2}] a)))))
         (testing "that right of & is unbound (compile-time errors)"
@@ -287,8 +287,8 @@
           keys-sel {:a 1 :b 2 :c 3 :d 4}
           syms-sel '{sa 10 sb 20 sc 30 sd 40}
           strs-sel {"stra" 100 "strb" 200 "strc" 300 "strd" 400}
-          qkeys-sel {:foo/x 1000 :foo/z 3000}
-          aqkeys-sel {::x 10000 ::z 30000}
+          qkeys-sel #:foo{:x 1000 :y 2000 :z 3000}
+          aqkeys-sel #::{:x 10000 :y 20000 :z 30000}
           nest-sel '{:aa 1, saa 10}
           tl-sel '{:nested {:aa 1, saa 10} ::x 10000}
           or-sel {:a 1 :b 2 :c 3 :d 4}
@@ -302,74 +302,55 @@
           (is (= {:n nil} (let [{{a :a} :n :select s} {:n nil}] s)))
           (is (= {:n {}} (let [{{a :a} :n :select s} {:n {}}] s))))
 
-        (testing "defaults can turn nothing into something"
+        (testing ":or defaults can turn nothing into something"
           (is (= {:n {:a 42}} (let [{{a :a :or {a 42}} :n :select s} nil] s)))
           (is (= {:n {:a 42}} (let [{{a :a :or {a 42}} :n :select s} {:n nil}] s))))))
 
-    (deftest select-or-defaults
+    (deftest select-or
       (let [sample-map {:a 1, :b 2, :c  {:aa 10 :bb 20},
                         'd 4  'e 5  'f  {'dd 40 'ee 50},
                         "g" 6 "h" 7 "i" {"gg" 60 "hh" 70},}]
         (testing "happy path"
-          #_(testing ":defaults"
-            (is (empty? (let [{:defaults d :or {}} {}] d)))
-            (is (thrown? Exception (eval '(let [{:defaults d :or {:a 1}} {}] d))))
-            (is (= {:a 1} (let [{:keys [a] :defaults d :or {:a 1}} {}] d)))
-            (is (= {:a 1} (let [{:keys [a] :defaults d :or {a 1}} {}] d)))
-            (is (= {:a 1, 'b 2, "c" 3} (let [{b 'b, c "c", :keys [a] :defaults d :or {:a 1, 'b 2, "c" 3}} {}] d))))
       
-          (testing ":keys + :select + :or + defaults"
+          (testing ":keys + :select + :or"
             (let [{:keys [a b z & :c :d] {:keys! [aa & :bb]} :c
                    :or {:d 42, z :or-z}
                    :select m
                    :excess excess
-                   :all all
-                   ;;:defaults dfs
-                   } sample-map]
+                   :all all} sample-map]
               (is (= 1 a))
               (is (= 2 b))
               (is (= 10 aa))
               (is (= {:z :or-z, :c {:aa 10, :bb 20}, :b 2, :d 42, :a 1} m))
-              ;;(is (= {:d 42, :z :or-z} dfs))
               (is (= all (merge-deep excess all)))))
 
-          (testing ":syms + :select + :or + defaults"
+          (testing ":syms + :select + :or"
             (let [{:syms [d e z & 'd 'f] {:syms! [dd & 'ee]} 'f
                    :or {'d 42, z :or-z}
                    :select m
                    :excess excess
-                   :all all
-                   ;;:defaults dfs
-                   } sample-map]
+                   :all all} sample-map]
               (is (= 4 d))
               (is (= 5 e))
               (is (= 40 dd))
               (is (= '{f {dd 40, ee 50}, e 5, d 4, z :or-z} m))
-              ;;(is (= '{d 42, z :or-z} dfs))
               (is (= all (merge-deep excess all)))))
 
-          (testing ":strs + :select + :or + defaults"
+          (testing ":strs + :select + :or"
             (let [{:strs [g h z & "d" "i"] {:strs! [gg & "hh"]} "i"
                    :or {"d" 42, z :or-z}
                    :select m
                    :excess excess
-                   :all all
-                   ;;:defaults dfs
-                   } sample-map]
+                   :all all} sample-map]
               (is (= 6 g))
               (is (= 7 h))
               (is (= 60 gg))
               (is (= {"d" 42, "z" :or-z, "i" {"gg" 60, "hh" 70}, "g" 6, "h" 7} m))
-              ;;(is (= {"d" 42, "z" :or-z} dfs))
               (is (= all (merge-deep excess all)))))
 
           (testing "mixed things after &"
             (is (= 1 (let [{:keys [a & 'b]} {:a 1}] a)))
-            (is (= 1 (let [{:keys! [a & 'b "c"]} {:a 1, 'b 2, "c" 3}] a))))
-
-          #_(testing "known compile-time errors"
-            (is (thrown? Exception (eval '(let [{:keys [a] :defaults d :or {:a 1, a 1}} {}] d))))
-            (is (thrown? Exception (eval '(let [{:defaults d} {}] d))))))))
+            (is (= 1 (let [{:keys! [a & 'b "c"]} {:a 1, 'b 2, "c" 3}] a)))))))
 
     (deftest all-directive
       (testing "base cases"
@@ -395,7 +376,7 @@
           (is (= {:n {:a 42}} (let [{{a :a :or {a 42}} :n :all m} {:n nil}] m))))
         (testing ":or defaults must correspond to binding with :all"
           (is (thrown? Exception (eval '(let [{:keys [a] :or {a 1 z 2} :all m} {}] m))))))
-      (testing "defaults applied in :all"
+      (testing ":or defaults applied in :all"
         (is (= {:a 1}       (let [{:keys [a] :or {a 42} :all m} {:a 1}] m)))
         (is (= {:n {:a 42}} (let [{{a :a :or {a 42}} :n :all m} nil] m)))
         (is (= {:n {:nn {:a 1 :b 2}}}
@@ -413,13 +394,6 @@
                (let [{:keys [a b & :c :z] :or {:z 42} :all m} {:a 1 :b 2 :z 100}] m)))
         (testing ":or defaults must correspond to binding with :all plus &"
           (is (thrown? Exception (eval '(let [{:keys [a b & :c] :or {c 42} :all m} {:a 1 :b 2}] m))))))
-      #_(testing ":all with :defaults"
-          (is (= [{:a 1} {:a 1}]
-                 (let [{:keys [a] :or {a 1} :all all-m :defaults dfs} {}]
-                   [all-m dfs])))
-          (is (= [{:a 5 :b 2} {:a 1}]
-                 (let [{:keys [a] :or {a 1} :all all-m :defaults dfs} {:a 5 :b 2}]
-                   [all-m dfs]))))
       (testing "combinations"
         (let [sample-map {:a 1, :b 2, :c {:aa 10},
                           'd 4, 'e 5, 'f {'dd 40},
@@ -442,7 +416,6 @@
                :all all-m
                :select sel-m
                :excess excess-m
-               ;;:defaults dfs
                :as as-m} sample-map]
 
           (is (= 1 a)) (is (= 2 b))
@@ -453,7 +426,6 @@
           (is (= '{dd 40 ee 500} all-f))
           (is (= {"gg" 60 "hh" 700} all-i))
           (is (= as-m sample-map))
-          ;;(is (= {:missing :default-missing} dfs))
           (is (= all-m (merge-deep sel-m excess-m)))
 
           (testing ":all merges manually"
@@ -580,13 +552,23 @@
                                :excess keys-excess})]
             (is (= (dissoc sample-map :a :b :c :d) (ex1 sample-map)))))
 
-        (testing ":select plus :missing, but nothing missing"
-          (let [ex2 (selector {:keys [a b & :c :z]
-                               :keys! [d]
-                               :select keys-sel
-                               :missing keys-missing})]
-            (is (= {:select {:a 1 :b 2 :c 3 :d 4}}
-                   (ex2 sample-map)))))
+        (testing ":select plus :missing"
+          (testing "but nothing missing"
+            (let [ex2 (selector {:keys [a b & :c :z]
+                                 :keys! [d]
+                                 :select keys-sel
+                                 :missing keys-missing})]
+              (is (= {:select {:a 1 :b 2 :c 3 :d 4}}
+                     (ex2 sample-map)))))
+
+          (testing "nested with :missing regression"
+            (let [f (selector {:req! {{:as c} :card}
+                               :missing m})]
+              (are [m exp] (= exp (f m))
+                {}  {:card nil}
+                nil {:card nil}
+                {:card {}} nil
+                {:card {:n 42}} nil))))
 
         (testing ":select plus :all"
           (let [ex3 (selector {:keys [a b & :c :z]
@@ -631,7 +613,28 @@
                                   aqx ::x
                                   :select tl-sel})]
             (is (= {::x 10000 :nested {:aa 1 'saa 10}}
-                   (exnest sample-map)))))
+                   (exnest sample-map))))
+
+          (testing "nested with :select regression"
+            (let [f (selector {:req! {{:keys [a]} :card}
+                               :missing m
+                               :select  s})]
+              (are [m exp] (= exp (f m))
+                {}  {:missing {:card nil} :select {}}
+                nil {:missing {:card nil}}
+                {:card {}} {:select {:card {}}}
+                {:card {:n 42}} {:select {:card {}}}
+                {:card {:a 42}} {:select {:card {:a 42}}}))
+
+            (let [f! (selector {:req! {{:keys! [a]} :card}
+                                :missing m
+                                :select  s})]
+              (are [m exp] (= exp (f! m))
+                {} {:missing {:card {:a nil}} :select {}}
+                nil {:missing {:card {:a nil}}}
+                {:card {}} {:missing {:card {:a nil}} :select {:card {}}}
+                {:card {:n 42}} {:missing {:card {:a nil}} :select {:card {}}}
+                {:card {:a 42}} {:select {:card {:a 42}}}))))
 
         (testing "nested selection behavior with _ bindings"
           (let [exnest_ (selector {{aa :aa saa 'saa
@@ -639,7 +642,18 @@
                                    aqx ::x
                                    :select _})]
             (is (= {::x 10000 :nested {:aa 1 'saa 10}}
-                   (exnest_ sample-map)))))))
+                   (exnest_ sample-map)))))
+
+        (testing ":req! selector"
+          (let [req!sel (selector {:keys! [a b],
+                                   :keys [d z & :c],
+                                   :req! {x ::x, {:keys [aa]} :nested},
+                                   :or {z 42},
+                                   :select sel
+                                   :excess exc})]
+            (is (= {:select {:nested {:aa 1}, :z 42, ::x 10000, :c 3, :b 2, :d 4, :a 1},
+                    :excess {:e 5, :nested '{saa 10}}}
+                   (req!sel sample-map)))))))
 
     (deftest test-merge
       (testing "`nil` and empty map behavior"
@@ -677,6 +691,72 @@
           [1 2]
           [:foo]
           ["str"])))
+
+    (deftest req!-directive
+      (let [kw-map {:long-a 1 :b 2 :nested {:c 3}}
+            sym-map '{long-a 1 b 2 nested {c 3}}
+            str-map {"long-a" 1 "b" 2 "nested" {"c" 3}}]
+        (testing "name/key binding form in :req!"
+          (is (= 1 (let [{:req! {a :long-a}} kw-map] a)))
+          (is (= 1 (let [{:req! {a 'long-a}} sym-map] a)))
+          (is (= 1 (let [{:req! {a "long-a"}} str-map] a)))
+
+          (is (thrown? Exception (let [{:req! {a :long-a}} {}] a)))
+          (is (thrown? Exception (let [{:req! {a 'long-a}} {}] a)))
+          (is (thrown? Exception (let [{:req! {a "long-a"}} {}] a))))
+
+        (testing "destructure-form/key form in :req!"
+          (is (= 3 (let [{:req! {{:keys! [c]} :nested}} kw-map] c)))
+          (is (= 3 (let [{:req! {{:syms! [c]} 'nested}} sym-map] c)))
+          (is (= 3 (let [{:req! {{:strs! [c]} "nested"}} str-map] c)))
+
+          (is (thrown? Exception (let [{:req! {{:keys! [c]} :nested}} {}] c)))
+          (is (thrown? Exception (let [{:req! {{:syms! [c]} 'nested}} {}] c)))
+          (is (thrown? Exception (let [{:req! {{:strs! [c]} "nested"}} {}] c))))
+
+        (testing "mixing :req! with checked and optional keys "
+          (is (= [1 2 nil] (let [{:keys! [b], :keys [d], :req! {a :long-a}} kw-map] [a b d])))
+          (is (= [1 2 nil] (let [{:syms! [b], :syms [d], :req! {a 'long-a}} sym-map] [a b d])))
+          (is (= [1 2 nil] (let [{:strs! [b], :strs [d], :req! {a "long-a"}} str-map] [a b d]))))
+
+        (testing ":req! with :or"
+          (is (= [1 2 42] (let [{:keys! [b], :keys [d], :req! {a :long-a}, :or {d 42}} kw-map] [a b d])))
+          (is (= [1 2 42] (let [{:syms! [b], :syms [d], :req! {a 'long-a}, :or {d 42}} sym-map] [a b d])))
+          (is (= [1 2 42] (let [{:strs! [b], :strs [d], :req! {a "long-a"}, :or {d 42}} str-map] [a b d])))
+          (is (thrown? Exception (eval '(let [{:req! {b :b}, :or {b 42}} {}] b)))))
+
+        (testing ":req! with :missing collects"
+          (is (= {:long-a nil} (let [{:req! {a :long-a}, :missing miss} {}] miss)))
+          (is (= '{long-a nil} (let [{:req! {a 'long-a}, :missing miss} {}] miss)))
+          (is (= {"long-a" nil} (let [{:req! {a "long-a"}, :missing miss} {}] miss)))
+
+          (is (= {:nested {:c nil}} (let [{:req! {{:keys! [c]} :nested}, :missing miss} {}] miss)))
+          (is (= '{nested {c nil}} (let [{:req! {{:syms! [c]} 'nested}, :missing miss} {}] miss)))
+          (is (= {"nested" {"c" nil}} (let [{:req! {{:strs! [c]} "nested"}, :missing miss} {}] miss))))
+
+        (testing ":req! with :select"
+          (is (= {:long-a 1, :b 2, :d 42}
+                 (let [{:keys! [b], :keys [d], :req! {a :long-a}, :or {d 42}, :select sel} kw-map] sel)))
+          (is (= '{b 2, long-a 1, d 42}
+                 (let [{:syms! [b], :syms [d], :req! {a 'long-a}, :or {d 42}, :select sel} sym-map] sel)))
+          (is (= {"d" 42, "long-a" 1, "b" 2}
+                 (let [{:strs! [b], :strs [d], :req! {a "long-a"}, :or {d 42}, :select sel} str-map] sel))))
+
+        (testing ":req! with :excess"
+          (is (= {:nested {:c 3}}
+                 (let [{:keys! [b], :keys [d], :req! {a :long-a}, :or {d 42}, :excess exc} kw-map] exc)))
+          (is (= '{nested {c 3}}
+                 (let [{:syms! [b], :syms [d], :req! {a 'long-a}, :or {d 42}, :excess exc} sym-map] exc)))
+          (is (= {"nested" {"c" 3}}
+                 (let [{:strs! [b], :strs [d], :req! {a "long-a"}, :or {d 42}, :excess exc} str-map] exc))))
+
+        (testing ":req! with :all"
+          (is (= {:d 42, :long-a 1, :b 2, :nested {:c 3}}
+                 (let [{:keys! [b], :keys [d], :req! {a :long-a}, :or {d 42}, :all all} kw-map] all)))
+          (is (= '{d 42, long-a 1, b 2, nested {c 3}}
+                 (let [{:syms! [b], :syms [d], :req! {a 'long-a}, :or {d 42}, :all all} sym-map] all)))
+          (is (= {"d" 42, "long-a" 1, "b" 2, "nested" {"c" 3}}
+                 (let [{:strs! [b], :strs [d], :req! {a "long-a"}, :or {d 42}, :all all} str-map] all))))))
     ])
 
 (deftest clojure-destructure-test

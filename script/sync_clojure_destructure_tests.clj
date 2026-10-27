@@ -9,7 +9,7 @@
 (def test-names
   '[singleton-map-in-destructure-context trailing-map-destructuring
     keys-bang syms-bang strs-bang missing-directive select-directive
-    select-or-defaults all-directive excess selector-test test-merge])
+    select-or all-directive excess selector-test test-merge req!-directive])
 
 (def out "test/sci/clojure_destructure_test.cljc")
 
