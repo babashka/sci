@@ -19,7 +19,9 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - `read` at the end of a `LineNumberingPushbackReader` reads the underlying stream once
 - `clojure.repl/doc` on `&`, `catch` and `finally` prints the docs of `fn` and `try`
 - Speed up `binding` (about 4x on the JVM, 2x in native bb) and `try` without a catch (about 4x)
-- Clojure 1.13 map destructuring as of clojure/clojure 98d735fa: `:excess` and `:missing` directives, `:defaults` removed. Adds the `selector` macro to `clojure.core`.
+- Clojure 1.13 map destructuring as of clojure/clojure 33fb064d (1.13.0-alpha11): `:req!`, `:excess` and `:missing` directives, `:defaults` removed. Adds the `selector` macro to `clojure.core`.
+- A qualified key in `:ns/keys` keeps its own namespace: `{:foo/keys [bar/x]}` looks up `:bar/x`, not `:foo/x`
+- `:ns/keys` qualifies unqualified keywords after `&`: `{:foo/keys! [a & :b]}` selects `:foo/b`
 - Minimum Clojure version is `1.11.1`
 - `merge` returns the other argument unchanged if one argument is nil (Clojure 1.13)
 - A macro var in call position expands, in analysis, `macroexpand-1` and `macroexpand`: `(eval (list #'when true 1))`
