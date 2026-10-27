@@ -57,7 +57,7 @@
       (is (= 2 (eval* (list 'let ['{:keys! [b & :foo/c]} m] 'b))))
       (is (throws? (list 'let ['{:keys! [b & :foo/c]} (dissoc m :b)] 'b)))
       (is (throws? (list 'let ['{:keys! [b & :foo/c]} (dissoc m :foo/c)] 'b)))
-      (is (= 1 (eval* (list 'let ['{:foo/keys! [aa & :bb]} {:foo/aa 1 :bb 2}] 'aa))))))
+      (is (= 1 (eval* (list 'let ['{:foo/keys! [aa & :bb]} {:foo/aa 1 :foo/bb 2}] 'aa))))))
   (testing "keys after & are not bound"
     (is (throws? '(let [{:keys! [a & :b]} {:a 1 :b 2}] b)))
     (is (throws? '(let [{:keys! [foo/a & :foo/c]} {:foo/a 1 :foo/c 2}] c))))

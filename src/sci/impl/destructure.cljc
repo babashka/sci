@@ -4,7 +4,7 @@
   (:refer-clojure :exclude [destructure])
   (:require [clojure.string :as str]))
 
-;; destvec* and destmap* track clojure/clojure core.clj at 98d735fa (2026-10-06).
+;; destvec* and destmap* track clojure/clojure core.clj at 33fb064d (2026-10-27).
 ;; Diff against that when syncing.
 
 (defn- destructure-error [msg]
@@ -78,10 +78,18 @@
         xf (fn [mk]
              (let [mkns (namespace mk)
                    mkn (name mk)]
-               (cond (str/starts-with? mkn "keys") #(keyword (or mkns (namespace %)) (name %))
-                     (str/starts-with? mkn "syms") #(list 'quote (symbol (or mkns (namespace %)) (name %)))
+               (cond (str/starts-with? mkn "keys") #(keyword (or (namespace %) mkns) (name %))
+                     (str/starts-with? mkn "syms") #(list 'quote (symbol (or (namespace %) mkns) (name %)))
                      (str/starts-with? mkn "strs") str
                      :else (destructure-error (str "Unsupported map directive: " mk)))))
+        xfk (fn [mk]
+              (let [mkns (namespace mk)
+                    mkn (name mk)]
+                (if (and (str/starts-with? mkn "keys") mkns)
+                  #(if (keyword? %)
+                     (keyword (or (namespace %) mkns) (name %))
+                     %)
+                  identity)))
         ret (reduce (fn [ret e]
                       (conj ret (val e) (defaults (key e))))
                     bvec gdefaults)
@@ -121,45 +129,55 @@
                              (if missing
                                (list `get gmap bk gnotfound)
                                (list req!-sym gmap bk))
-                             (list `get gmap bk)))]
-                  (if (or (keyword? bb) (symbol? bb)) ;(ident? bb)
-                    (if (and req? missing)
-                      (conj ret
-                            gtemp bv
-                            gnotfound? `(identical? ~gtemp ~gnotfound)
-                            missing `(if ~gnotfound? (assoc ~missing ~bk nil) ~missing)
-                            local `(when-not ~gnotfound? ~gtemp))
-                      (-> ret (conj local bv)))
-                    (pb ret bb bv))))
+                             (list `get gmap bk)))
+                      ident? (or (keyword? bb) (symbol? bb))]
+                  (if (and req? missing)
+                    (let [ret
+                          (conj ret
+                                gtemp bv
+                                gnotfound? `(identical? ~gtemp ~gnotfound)
+                                missing `(if ~gnotfound? (assoc ~missing ~bk nil) ~missing)
+                                (if ident? local gtemp) `(when-not ~gnotfound? ~gtemp))]
+                      (if ident? ret (pb ret bb gtemp)))
+                    (if ident?
+                      (-> ret (conj local bv))
+                      (pb ret bb bv)))))
         retsel
-        (loop [ret ret, sel #{}, bes bes, b->k {}, subs nil, suba nil, subexcess nil, submissing nil]
+        (loop [ret ret, sel #{}, bes (seq bes), b->k {}, subs nil, suba nil, subexcess nil, submissing nil]
           (if (seq bes)
             (let [be (first bes), bb (key be), bk (val be)]
               (if (keyword? bb)
-                (let [dir bb
-                      tr (xf bb)
-                      req? (str/ends-with? (name bb) "!")
-                      retsel
-                      (loop [ret ret, sel sel, bbs (seq bk), preamp? true, b->k b->k]
-                        (if (seq bbs)
-                          (let [bb (first bbs)]
-                            (if (= bb '&)
-                              (if preamp?
-                                (recur ret sel (next bbs) false b->k)
-                                (destructure-error (str "& can only appear once in " dir)))
-                              (let [_ (when (and (not preamp?) (symbol? bb))
-                                        (destructure-error
-                                         (str "'" bb "' - binding symbols can only appear before '&', use keys after")))
-                                    bk (if preamp? (tr bb) bb)]
-                                (recur (if (or preamp? req?)
-                                         (push1 ret (if preamp? bb gtemp) bk req?)
-                                         ret)
-                                       (conj sel bk)
-                                       (next bbs) preamp?
-                                       (if preamp? (assoc b->k (localize bb) bk) b->k)))))
-                          {:ret ret, :sel sel, :b->k b->k}))]
-                  (recur (:ret retsel) (:sel retsel) (next bes) (:b->k retsel) subs suba subexcess submissing))
-                (let [subsel? (and select (map? bb))
+                (if (= :req! bb)
+                  (let [bes (reduce conj (next bes)
+                                    (map #(first {(vary-meta (key %) assoc ::impl-detail-42 true) (val %)})
+                                         bk))]
+                    (recur ret sel bes b->k subs suba subexcess submissing))
+                  (let [dir bb
+                        tr (xf bb)
+                        trk (xfk bb)
+                        req? (str/ends-with? (name bb) "!")
+                        retsel
+                        (loop [ret ret, sel sel, bbs (seq bk), preamp? true, b->k b->k]
+                          (if (seq bbs)
+                            (let [bb (first bbs)]
+                              (if (= bb '&)
+                                (if preamp?
+                                  (recur ret sel (next bbs) false b->k)
+                                  (destructure-error (str "& can only appear once in " dir)))
+                                (let [_ (when (and (not preamp?) (symbol? bb))
+                                          (destructure-error
+                                           (str "'" bb "' - binding symbols can only appear before '&', use keys after")))
+                                      bk (if preamp? (tr bb) (trk bb))]
+                                  (recur (if (or preamp? req?)
+                                           (push1 ret (if preamp? bb gtemp) bk req?)
+                                           ret)
+                                         (conj sel bk)
+                                         (next bbs) preamp?
+                                         (if preamp? (assoc b->k (localize bb) bk) b->k)))))
+                            {:ret ret, :sel sel, :b->k b->k}))]
+                    (recur (:ret retsel) (:sel retsel) (next bes) (:b->k retsel) subs suba subexcess submissing)))
+                (let [req? (-> bb meta ::impl-detail-42)
+                      subsel? (and select (map? bb))
                       bb (if (or (not subsel?) (:select bb))
                            bb
                            (assoc bb :select (gensym "select__")))
@@ -180,7 +198,7 @@
                            (assoc bb :missing (gensym "missing__")))
                       submissing (if submissing? (assoc submissing bk (:missing bb)) submissing)
                       b->k (if (symbol? bb) (assoc b->k bb bk) b->k)]
-                  (recur (push1 ret bb bk false) (conj sel bk) (next bes) b->k subs suba subexcess submissing))))
+                  (recur (push1 ret bb bk req?) (conj sel bk) (next bes) b->k subs suba subexcess submissing))))
             {:ret ret, :sel sel, :b->k b->k, :subs subs, :suba suba, :subexcess subexcess, :submissing submissing}))
         ret (:ret retsel), sel (vec (:sel retsel)), b->k (:b->k retsel)
         bk #(if (symbol? %)

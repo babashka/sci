@@ -1,6 +1,6 @@
 # Clojure 1.13 sync
 
-Last synced clojure/clojure commit: `98d735fab02f337cee654cb0629bddc09883a75a` (2026-10-06, after 1.13.0-alpha8).
+Last synced clojure/clojure commit: `33fb064dee4cf8decdae71ed93f1a6262f7a4c28` (2026-10-27, after 1.13.0-alpha11).
 
 Ported from `src/clj/clojure/core.clj`:
 
@@ -15,8 +15,8 @@ To catch up:
 
 ```bash
 cd ~/dev/clojure && git fetch origin
-git log --oneline 98d735fa..origin/master -- src/clj/clojure/core.clj
-git -c diff.external= diff --no-ext-diff 98d735fa origin/master -- src/clj/clojure/core.clj
+git log --oneline 33fb064d..origin/master -- src/clj/clojure/core.clj
+git -c diff.external= diff --no-ext-diff 33fb064d origin/master -- src/clj/clojure/core.clj
 ```
 
 Port the `destmap*`, `destvec*`, `some-vals`, `req!`, `selector` and `merge` hunks, then copy upstream's destructuring deftests and update the commit above:
