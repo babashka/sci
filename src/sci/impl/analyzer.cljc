@@ -550,6 +550,7 @@
                                     (fn [^objects enclosed-array ^objects invoc-array]
                                       (loop [i 0]
                                         (when (< i n)
+                                          ;; the -int ops measured faster on the JVM than unchecked-inc and unchecked-add
                                           (aset invoc-array (aget idxs (unchecked-inc-int i)) (aget enclosed-array (aget idxs i)))
                                           (recur (unchecked-add-int i 2))))
                                       invoc-array))
