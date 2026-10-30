@@ -509,15 +509,30 @@
                                           (aset 0 binding-idx)
                                           (aset 1 enclosed-idx)))))
                                   closed-over-idens))]
-            [(fn [#?(:cljd bindings :clj ^objects bindings :cljs ^objects bindings)]
-               (areduce binding->enclosed idx ret #?(:cljd (#/(List/filled dynamic) enclosed-array-cnt nil)
-                                                     :default (object-array enclosed-array-cnt))
-                        (let [#?@(:cljd [idxs] :default [^objects idxs]) (aget binding->enclosed idx)
-                              binding-idx (aget idxs 0)
-                              binding-val (aget bindings binding-idx)
-                              enclosed-idx (aget idxs 1)]
-                          (aset #?(:cljd ^List ret :default ret) enclosed-idx binding-val)
-                          ret)))
+            [#?(:clj
+                (let [n (* 2 (alength binding->enclosed))
+                      ^ints idxs (int-array n)
+                      _ (dotimes [i (alength binding->enclosed)]
+                          (let [^objects pair (aget binding->enclosed i)]
+                            (aset idxs (* 2 i) (int (aget pair 0)))
+                            (aset idxs (inc (* 2 i)) (int (aget pair 1)))))]
+                  (fn [^objects bindings]
+                    (let [^objects ret (object-array enclosed-array-cnt)]
+                      (loop [i 0]
+                        (when (< i n)
+                          (aset ret (aget idxs (unchecked-inc-int i)) (aget bindings (aget idxs i)))
+                          (recur (unchecked-add-int i 2))))
+                      ret)))
+                :default
+                (fn [#?(:cljd bindings :cljs ^objects bindings)]
+                  (areduce binding->enclosed idx ret #?(:cljd (#/(List/filled dynamic) enclosed-array-cnt nil)
+                                                        :default (object-array enclosed-array-cnt))
+                           (let [#?@(:cljd [idxs] :default [^objects idxs]) (aget binding->enclosed idx)
+                                 binding-idx (aget idxs 0)
+                                 binding-val (aget bindings binding-idx)
+                                 enclosed-idx (aget idxs 1)]
+                             (aset #?(:cljd ^List ret :default ret) enclosed-idx binding-val)
+                             ret))))
              enclosed-array-cnt
              #?(:cljs (vec (keep (fn [iden]
                                    (when-let [binding-idx (get iden->invoke-idx iden)]
@@ -736,7 +751,7 @@
            (t/eval body ctx bindings)
            stack)
         1 (let [node0 (nth let-nodes 0)
-                idx0 (nth idxs 0)]
+                idx0 (int (nth idxs 0))]
             (sci.impl.types/->Node
              (let [val0 (t/eval node0 ctx bindings)]
                (aset #?(:cljd ^List bindings :default ^objects bindings) idx0 val0)
@@ -744,8 +759,8 @@
              stack))
         2 (let [node0 (nth let-nodes 0)
                 node1 (nth let-nodes 1)
-                idx0 (nth idxs 0)
-                idx1 (nth idxs 1)]
+                idx0 (int (nth idxs 0))
+                idx1 (int (nth idxs 1))]
             (sci.impl.types/->Node
              (let [val0 (t/eval node0 ctx bindings)]
                (aset #?(:cljd ^List bindings :default ^objects bindings) idx0 val0)
@@ -756,9 +771,9 @@
         3 (let [node0 (nth let-nodes 0)
                 node1 (nth let-nodes 1)
                 node2 (nth let-nodes 2)
-                idx0 (nth idxs 0)
-                idx1 (nth idxs 1)
-                idx2 (nth idxs 2)]
+                idx0 (int (nth idxs 0))
+                idx1 (int (nth idxs 1))
+                idx2 (int (nth idxs 2))]
             (sci.impl.types/->Node
              (let [val0 (t/eval node0 ctx bindings)]
                (aset #?(:cljd ^List bindings :default ^objects bindings) idx0 val0)
@@ -772,10 +787,10 @@
                 node1 (nth let-nodes 1)
                 node2 (nth let-nodes 2)
                 node3 (nth let-nodes 3)
-                idx0 (nth idxs 0)
-                idx1 (nth idxs 1)
-                idx2 (nth idxs 2)
-                idx3 (nth idxs 3)]
+                idx0 (int (nth idxs 0))
+                idx1 (int (nth idxs 1))
+                idx2 (int (nth idxs 2))
+                idx3 (int (nth idxs 3))]
             (sci.impl.types/->Node
              (let [val0 (t/eval node0 ctx bindings)]
                (aset #?(:cljd ^List bindings :default ^objects bindings) idx0 val0)
@@ -792,11 +807,11 @@
                 node2 (nth let-nodes 2)
                 node3 (nth let-nodes 3)
                 node4 (nth let-nodes 4)
-                idx0 (nth idxs 0)
-                idx1 (nth idxs 1)
-                idx2 (nth idxs 2)
-                idx3 (nth idxs 3)
-                idx4 (nth idxs 4)]
+                idx0 (int (nth idxs 0))
+                idx1 (int (nth idxs 1))
+                idx2 (int (nth idxs 2))
+                idx3 (int (nth idxs 3))
+                idx4 (int (nth idxs 4))]
             (sci.impl.types/->Node
              (let [val0 (t/eval node0 ctx bindings)]
                (aset #?(:cljd ^List bindings :default ^objects bindings) idx0 val0)
@@ -1583,7 +1598,8 @@
 
 (defn return-binding-call
   [ctx expr idx f analyzed-children stack]
-  (let [node (return-call ctx expr f analyzed-children stack
+  (let [idx (int idx)
+        node (return-call ctx expr f analyzed-children stack
                           (fn [_ctx bindings _f]
                             (aget #?(:cljd ^List bindings :default ^objects bindings) idx)))]
     (t/attach-ast node [:call-bind idx analyzed-children stack])))
