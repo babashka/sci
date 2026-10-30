@@ -18,6 +18,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - `clojure.repl/print-doc` is a private var, so `ns-interns` of `clojure.repl` returns only vars
 - `read` at the end of a `LineNumberingPushbackReader` reads the underlying stream once
 - `clojure.repl/doc` on `&`, `catch` and `finally` prints the docs of `fn` and `try`
+- Speed up `let`, calls of local fns and creation of closures (about 4% on malli validators in native bb)
 - Speed up closures that capture locals (up to 21% on the JVM, 24% on malli validators in native bb)
 - Speed up `binding` (about 4x on the JVM, 2x in native bb) and `try` without a catch (about 4x)
 - Clojure 1.13 map destructuring as of clojure/clojure 33fb064d (1.13.0-alpha11): `:req!`, `:excess` and `:missing` directives, `:defaults` removed. Adds the `selector` macro to `clojure.core`.
