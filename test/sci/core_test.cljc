@@ -2104,6 +2104,16 @@
    (deftest js-in-test
      (is (true? (sci/eval-string "(js-in \"foo\" #js {:foo 1})")))))
 
+(deftest named-fn-self-reference-test
+  (testing "one arity of a named fn calls another arity"
+    (is (= 3 (eval* "((fn f ([] (f 1)) ([x] (+ x 2))))"))))
+  (testing "a closure inside a named fn calls the named fn"
+    (is (= 6 (eval* "((fn f [n] (if (pos? n) ((fn [] (+ n (f (dec n))))) 0)) 3)"))))
+  (testing "a self reference returns the fn with its metadata"
+    (is (= 1 (eval* "(:a (meta (^{:a 1} (fn f [] f))))"))))
+  (testing "a named fn that ignores its name returns its result"
+    (is (= 2 (eval* "((fn f [x] (inc x)) 1)")))))
+
 ;;;; Scratch
 
 (comment

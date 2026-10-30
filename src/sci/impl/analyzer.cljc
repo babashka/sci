@@ -342,7 +342,6 @@
         ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)
         ctx (update ctx :parents conj (or var-arg-name fixed-arity))
         _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) (zipmap param-idens (range)))
-        self-ref-idx (when fn-name (update-parents ctx (:closure-bindings ctx) fn-id))
         ;; Transform async bodies before analysis
         body-exprs #?(:cljd body-exprs
                       :clj body-exprs
@@ -353,7 +352,8 @@
         #?@(:cljs [this-as-vol (volatile! false)
                    ctx (assoc ctx :this-as this-as-vol)])
         body (return-do (with-recur-target ctx true) fn-expr body-exprs)
-        iden->invoke-idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) :syms))]
+        iden->invoke-idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) :syms))
+        self-ref-idx (when fn-name (get iden->invoke-idx fn-id))]
     (cond-> (->FnBody binding-vector body fixed-arity var-arg-name self-ref-idx iden->invoke-idx)
       var-arg-name
       (assoc :vararg-idx (get iden->invoke-idx (last param-idens)))
