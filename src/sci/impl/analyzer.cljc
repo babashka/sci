@@ -539,16 +539,32 @@
                              invoc-size (count iden->invocation-idx)
                              copy-enclosed->invocation
                              (when (pos? (alength #?(:cljd ^List enclosed->invocation :default ^objects enclosed->invocation)))
-                               (fn [#?(:cljd enclosed-array :clj ^objects enclosed-array :cljs ^objects enclosed-array)
-                                    #?(:cljd invoc-array :clj ^objects invoc-array :cljs ^objects invoc-array)]
-                                 (areduce #?(:cljd ^List enclosed->invocation :default ^objects enclosed->invocation) idx ret invoc-array
-                                          (let [#?@(:cljd [idxs] :default [^objects idxs])
-                                                (aget #?(:cljd ^List enclosed->invocation :default ^objects enclosed->invocation) idx)
-                                                enclosed-idx (aget idxs 0)
-                                                enclosed-val (aget #?(:cljd ^List enclosed-array :default ^objects enclosed-array) enclosed-idx)
-                                                invoc-idx (aget idxs 1)]
-                                            (aset #?(:cljd ^List ret :default ^objects ret) invoc-idx enclosed-val)
-                                            ret))))
+                               #?(:clj
+                                  (let [pairs ^objects enclosed->invocation
+                                        n (* 2 (alength pairs))
+                                        ^ints idxs (int-array n)
+                                        _ (dotimes [i (alength pairs)]
+                                            (let [^objects pair (aget pairs i)]
+                                              (aset idxs (* 2 i) (int (aget pair 0)))
+                                              (aset idxs (inc (* 2 i)) (int (aget pair 1)))))]
+                                    (fn [^objects enclosed-array ^objects invoc-array]
+                                      (loop [i 0]
+                                        (when (< i n)
+                                          ;; the -int ops measured faster on the JVM than unchecked-inc and unchecked-add
+                                          (aset invoc-array (aget idxs (unchecked-inc-int i)) (aget enclosed-array (aget idxs i)))
+                                          (recur (unchecked-add-int i 2))))
+                                      invoc-array))
+                                  :default
+                                  (fn [#?(:cljd enclosed-array :cljs ^objects enclosed-array)
+                                       #?(:cljd invoc-array :cljs ^objects invoc-array)]
+                                    (areduce #?(:cljd ^List enclosed->invocation :default ^objects enclosed->invocation) idx ret invoc-array
+                                             (let [#?@(:cljd [idxs] :default [^objects idxs])
+                                                   (aget #?(:cljd ^List enclosed->invocation :default ^objects enclosed->invocation) idx)
+                                                   enclosed-idx (aget idxs 0)
+                                                   enclosed-val (aget #?(:cljd ^List enclosed-array :default ^objects enclosed-array) enclosed-idx)
+                                                   invoc-idx (aget idxs 1)]
+                                               (aset #?(:cljd ^List ret :default ^objects ret) invoc-idx enclosed-val)
+                                               ret)))))
                              body (assoc body
                                          :invoc-size invoc-size
                                          :invocation-self-idx invocation-self-idx
