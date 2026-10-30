@@ -550,8 +550,8 @@
                                     (fn [^objects enclosed-array ^objects invoc-array]
                                       (loop [i 0]
                                         (when (< i n)
-                                          (aset invoc-array (aget idxs (unchecked-inc-int i)) (aget enclosed-array (aget idxs i)))
-                                          (recur (unchecked-add-int i 2))))
+                                          (aset invoc-array (aget idxs (unchecked-inc i)) (aget enclosed-array (aget idxs i)))
+                                          (recur (unchecked-add i 2))))
                                       invoc-array))
                                   :default
                                   (fn [#?(:cljd enclosed-array :cljs ^objects enclosed-array)
