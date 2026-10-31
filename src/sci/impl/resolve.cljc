@@ -328,4 +328,4 @@
         (throw-error-with-location
          (str "Unable to resolve symbol: " sym)
          sym))
-    1 nil)))
+    1)))
