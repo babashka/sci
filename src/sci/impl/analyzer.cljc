@@ -321,27 +321,41 @@
 
 (declare update-parents)
 
+(defn- bind-params [bindings param-names]
+  (let [param-count (count param-names)]
+    (loop [i 0
+           bindings bindings
+           iden->invoke-idx {}]
+      (if (< i param-count)
+        (let [iden (gensym)
+              param-name (nth param-names i)]
+          (recur (inc i)
+                 (assoc (dissoc bindings param-name) param-name iden)
+                 (assoc iden->invoke-idx iden i)))
+        [bindings iden->invoke-idx]))))
+
 (defn expand-fn-args+body [{:keys [fn-expr] :as ctx} [binding-vector & body-exprs] _macro? fn-name fn-id #?(:cljs async? :default _async?)]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
   (when-not (vector? binding-vector)
     (throw-error-with-location "Parameter declaration should be a vector" fn-expr))
-  (let [[fixed-args [_ var-arg-name]] (split-with #(not= '& %) binding-vector)
-        fixed-args (vec fixed-args)
-        fixed-arity (count fixed-args)
+  (let [arg-count (count binding-vector)
+        fixed-arity (loop [i 0]
+                      (if (and (< i arg-count)
+                               (not= '& (nth binding-vector i)))
+                        (recur (inc i))
+                        i))
+        var-arg-name (get binding-vector (inc fixed-arity))
+        fixed-args (subvec binding-vector 0 fixed-arity)
         ;; param-names = all simple symbols, no destructuring
         param-names (cond-> fixed-args
                       var-arg-name (conj var-arg-name))
         ctx (assoc ctx :params param-names)
-        param-count (count param-names)
-        param-idens (repeatedly param-count gensym)
-        param-bindings (zipmap param-names param-idens)
-        iden->invoke-idx (zipmap param-idens (range))
-        bindings (apply dissoc (:bindings ctx) param-names)
-        ctx (assoc ctx :bindings (merge bindings param-bindings))
+        [bindings iden->invoke-idx] (bind-params (:bindings ctx) param-names)
+        ctx (assoc ctx :bindings bindings)
         ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)
         ctx (update ctx :parents conj (or var-arg-name fixed-arity))
-        _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) (zipmap param-idens (range)))
+        _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) iden->invoke-idx)
         ;; Transform async bodies before analysis
         body-exprs #?(:cljd body-exprs
                       :clj body-exprs
@@ -356,7 +370,7 @@
         self-ref-idx (when fn-name (get iden->invoke-idx fn-id))]
     (cond-> (->FnBody binding-vector body fixed-arity var-arg-name self-ref-idx iden->invoke-idx)
       var-arg-name
-      (assoc :vararg-idx (get iden->invoke-idx (last param-idens)))
+      (assoc :vararg-idx (get iden->invoke-idx (get bindings var-arg-name)))
       #?@(:cljs [@this-as-vol (assoc :this-as-idx @this-as-vol)]))))
 
 (defn analyzed-fn-meta [ctx m]
