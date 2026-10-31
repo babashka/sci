@@ -694,7 +694,7 @@
   (let [parents (:parents ctx)
         new-cb (vswap! closure-bindings
                        (fn [cb]
-                         (let [entry (utils/get-path cb parents)
+                         (let [entry (get-in cb parents)
                                iden->invoke-idx (:syms entry)]
                            (if (contains? iden->invoke-idx ob)
                              cb
@@ -703,7 +703,7 @@
                               (assoc entry :syms
                                      (assoc iden->invoke-idx
                                             ob (count iden->invoke-idx))))))))]
-    (get (:syms (utils/get-path new-cb parents)) ob)))
+    (get (:syms (get-in new-cb parents)) ob)))
 
 (defn analyze-let*
   [ctx expr destructured-let-bindings exprs]

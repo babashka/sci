@@ -186,7 +186,7 @@
                                 levels (quot (inc (count parents)) 2)]
                            (if (zero? levels)
                              cb
-                             (let [entry (utils/get-path cb path)
+                             (let [entry (get-in cb path)
                                    iden->invoke-idx (or (:syms entry) {})]
                                (if (contains? iden->invoke-idx ob)
                                  cb
@@ -197,7 +197,7 @@
                                                        ob (count iden->invoke-idx))))
                                         (-> path pop pop)
                                         (dec levels))))))))]
-    (get (:syms (utils/get-path new-cb parents)) ob)))
+    (get (:syms (get-in new-cb parents)) ob)))
 
 (defn lookup
   ([ctx sym call?] (lookup ctx sym call? nil))

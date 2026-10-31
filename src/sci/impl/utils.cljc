@@ -327,9 +327,6 @@
                  (:end-line expr-meta) (:end-column expr-meta)
                  @current-ns @current-file f-meta special?)))
 
-(defn get-path [m path]
-  (reduce get m path))
-
 (defn assoc-path
   ([m path v] (assoc-path m path 0 v))
   ([m path i v]
