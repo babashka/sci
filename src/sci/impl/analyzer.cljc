@@ -79,14 +79,12 @@
      :default x))
 
 (defn analyze-children-tail [ctx children]
-  (let [rt (recur-target ctx)
-        non-tail-ctx (without-recur-target ctx)
-        tail-ctx (with-recur-target ctx rt)]
+  (let [non-tail-ctx (without-recur-target ctx)]
     (loop [children (seq children)
            analyzed []]
       (if-let [nxt (next children)]
         (recur nxt (conj analyzed (analyze non-tail-ctx (first children))))
-        (conj analyzed (analyze tail-ctx (first children)))))))
+        (conj analyzed (analyze ctx (first children)))))))
 
 (defn return-do
   [ctx expr children]
