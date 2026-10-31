@@ -190,7 +190,7 @@
                                    iden->invoke-idx (or (:syms entry) {})]
                                (if (contains? iden->invoke-idx ob)
                                  cb
-                                 (recur (utils/assoc-path
+                                 (recur (assoc-in
                                          cb path
                                          (assoc entry :syms
                                                 (assoc iden->invoke-idx

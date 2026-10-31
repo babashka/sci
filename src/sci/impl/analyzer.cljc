@@ -698,7 +698,7 @@
                                iden->invoke-idx (:syms entry)]
                            (if (contains? iden->invoke-idx ob)
                              cb
-                             (utils/assoc-path
+                             (assoc-in
                               cb parents
                               (assoc entry :syms
                                      (assoc iden->invoke-idx
