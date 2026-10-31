@@ -15,6 +15,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Speed up calls to a named `fn` that does not refer to its own name
 - Speed up analysis of `fn` params (up to 27% on the JVM)
 - Speed up analysis of closures (about 7% on the JVM)
+- Speed up analysis of `do` bodies (about 4% on the JVM)
 - A static method used as a value (`(let [f Integer/toHexString] ...)`) obeys `:static-methods` config, like a direct call: denied when unlisted on a closed class, overridden when an override is configured
 - Speed up `try` with `finally` if `:interrupt-fn` is set (about 15% in a native image)
 - Copy `:added` and `:deprecated` into the metadata of built-in vars
