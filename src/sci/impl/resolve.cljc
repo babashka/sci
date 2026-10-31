@@ -321,10 +321,11 @@
   ([ctx sym] (resolve-symbol ctx sym false nil))
   ([ctx sym call?] (resolve-symbol ctx sym call? nil))
   ([ctx sym call? m]
-   (second
+   (nth
     (or (resolve-symbol* ctx sym call? m)
         #?(:cljs (let [resolved (resolve-dotted-access ctx sym call? m)]
                    resolved))
         (throw-error-with-location
          (str "Unable to resolve symbol: " sym)
-         sym)))))
+         sym))
+    1)))
