@@ -680,13 +680,16 @@
   (let [parents (:parents ctx)
         new-cb (vswap! closure-bindings
                        (fn [cb]
-                         (update-in cb (conj parents :syms)
-                                    (fn [iden->invoke-idx]
-                                      (if (contains? iden->invoke-idx ob)
-                                        iden->invoke-idx
-                                        (assoc iden->invoke-idx ob (count iden->invoke-idx)))))))
-        closure-idx (get-in new-cb (conj parents :syms ob))]
-    closure-idx))
+                         (let [entry (utils/get-path cb parents)
+                               iden->invoke-idx (:syms entry)]
+                           (if (contains? iden->invoke-idx ob)
+                             cb
+                             (utils/assoc-path
+                              cb parents
+                              (assoc entry :syms
+                                     (assoc iden->invoke-idx
+                                            ob (count iden->invoke-idx))))))))]
+    (get (:syms (utils/get-path new-cb parents)) ob)))
 
 (defn analyze-let*
   [ctx expr destructured-let-bindings exprs]

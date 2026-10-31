@@ -327,6 +327,17 @@
                  (:end-line expr-meta) (:end-column expr-meta)
                  @current-ns @current-file f-meta special?)))
 
+(defn get-path [m path]
+  (reduce get m path))
+
+(defn assoc-path
+  ([m path v] (assoc-path m path 0 v))
+  ([m path i v]
+   (let [k (nth path i)]
+     (assoc m k (if (< (inc i) (count path))
+                  (assoc-path (get m k) path (inc i) v)
+                  v)))))
+
 (defn make-stack
   ([expr-meta] (stack-frame expr-meta nil))
   ([expr-meta special?] (stack-frame expr-meta nil special?)))
