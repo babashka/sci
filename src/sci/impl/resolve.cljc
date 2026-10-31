@@ -181,31 +181,23 @@
   (let [parents (:parents ctx)
         new-cb (vswap! closure-bindings
                        (fn [cb]
-                         (first
-                          (reduce
-                           (fn [[acc path] _idx]
-                             (let [new-acc
-                                   (update-in
-                                    acc path
-                                    (fn [entry]
-                                      (let [iden->invoke-idx (or (:syms entry)
-                                                                 {})
-                                            added-before? (contains? iden->invoke-idx ob)]
-                                        (if added-before?
-                                          entry
-                                          (assoc entry :syms
-                                                 (assoc iden->invoke-idx
-                                                        ob (count iden->invoke-idx)))))))
-                                   new-res [new-acc
-                                            (-> path pop pop)]]
-                               (if (= acc new-acc)
-                                 (reduced new-res)
-                                 new-res)))
-                           [cb
-                            parents]
-                           (range (/ (count parents) 2))))))
-        closure-idx (get-in new-cb (conj parents :syms ob))]
-    closure-idx))
+                         (loop [cb cb
+                                path parents
+                                levels (quot (inc (count parents)) 2)]
+                           (if (zero? levels)
+                             cb
+                             (let [entry (utils/get-path cb path)
+                                   iden->invoke-idx (or (:syms entry) {})]
+                               (if (contains? iden->invoke-idx ob)
+                                 cb
+                                 (recur (utils/assoc-path
+                                         cb path
+                                         (assoc entry :syms
+                                                (assoc iden->invoke-idx
+                                                       ob (count iden->invoke-idx))))
+                                        (-> path pop pop)
+                                        (dec levels))))))))]
+    (get (:syms (utils/get-path new-cb parents)) ob)))
 
 (defn lookup
   ([ctx sym call?] (lookup ctx sym call? nil))
@@ -329,10 +321,11 @@
   ([ctx sym] (resolve-symbol ctx sym false nil))
   ([ctx sym call?] (resolve-symbol ctx sym call? nil))
   ([ctx sym call? m]
-   (second
+   (nth
     (or (resolve-symbol* ctx sym call? m)
         #?(:cljs (let [resolved (resolve-dotted-access ctx sym call? m)]
                    resolved))
         (throw-error-with-location
          (str "Unable to resolve symbol: " sym)
-         sym)))))
+         sym))
+    1 nil)))

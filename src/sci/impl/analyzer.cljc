@@ -36,11 +36,13 @@
   (:recur-target ctx))
 
 (defn with-recur-target [ctx v]
-  (assoc ctx :recur-target v))
+  (if (identical? v (:recur-target ctx))
+    ctx
+    (assoc ctx :recur-target v)))
 
 (defn without-recur-target
   ([ctx]
-   (assoc ctx :recur-target false))
+   (with-recur-target ctx false))
   ([ctx reason]
    (assoc ctx :recur-target false :no-recur-reason reason)))
 
@@ -81,9 +83,12 @@
 (defn analyze-children-tail [ctx children]
   (let [rt (recur-target ctx)
         non-tail-ctx (without-recur-target ctx)
-        analyzed-children-non-tail (mapv #(analyze non-tail-ctx %) (butlast children))
-        ret-child (analyze (with-recur-target ctx rt) (last children))]
-    (conj analyzed-children-non-tail ret-child)))
+        tail-ctx (with-recur-target ctx rt)]
+    (loop [children (seq children)
+           analyzed []]
+      (if-let [nxt (next children)]
+        (recur nxt (conj analyzed (analyze non-tail-ctx (first children))))
+        (conj analyzed (analyze tail-ctx (first children)))))))
 
 (defn return-do
   [ctx expr children]
@@ -321,27 +326,41 @@
 
 (declare update-parents)
 
+(defn- bind-params [bindings param-names]
+  (let [param-count (count param-names)]
+    (loop [i 0
+           bindings bindings
+           iden->invoke-idx {}]
+      (if (< i param-count)
+        (let [iden (gensym)
+              param-name (nth param-names i)]
+          (recur (inc i)
+                 (assoc (dissoc bindings param-name) param-name iden)
+                 (assoc iden->invoke-idx iden i)))
+        [bindings iden->invoke-idx]))))
+
 (defn expand-fn-args+body [{:keys [fn-expr] :as ctx} [binding-vector & body-exprs] _macro? fn-name fn-id #?(:cljs async? :default _async?)]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
   (when-not (vector? binding-vector)
     (throw-error-with-location "Parameter declaration should be a vector" fn-expr))
-  (let [[fixed-args [_ var-arg-name]] (split-with #(not= '& %) binding-vector)
-        fixed-args (vec fixed-args)
-        fixed-arity (count fixed-args)
+  (let [arg-count (count binding-vector)
+        fixed-arity (loop [i 0]
+                      (if (and (< i arg-count)
+                               (not= '& (nth binding-vector i)))
+                        (recur (inc i))
+                        i))
+        var-arg-name (get binding-vector (inc fixed-arity))
+        fixed-args (subvec binding-vector 0 fixed-arity)
         ;; param-names = all simple symbols, no destructuring
         param-names (cond-> fixed-args
                       var-arg-name (conj var-arg-name))
         ctx (assoc ctx :params param-names)
-        param-count (count param-names)
-        param-idens (repeatedly param-count gensym)
-        param-bindings (zipmap param-names param-idens)
-        iden->invoke-idx (zipmap param-idens (range))
-        bindings (apply dissoc (:bindings ctx) param-names)
-        ctx (assoc ctx :bindings (merge bindings param-bindings))
+        [bindings iden->invoke-idx] (bind-params (:bindings ctx) param-names)
+        ctx (assoc ctx :bindings bindings)
         ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)
         ctx (update ctx :parents conj (or var-arg-name fixed-arity))
-        _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) (zipmap param-idens (range)))
+        _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) iden->invoke-idx)
         ;; Transform async bodies before analysis
         body-exprs #?(:cljd body-exprs
                       :clj body-exprs
@@ -356,7 +375,7 @@
         self-ref-idx (when fn-name (get iden->invoke-idx fn-id))]
     (cond-> (->FnBody binding-vector body fixed-arity var-arg-name self-ref-idx iden->invoke-idx)
       var-arg-name
-      (assoc :vararg-idx (get iden->invoke-idx (last param-idens)))
+      (assoc :vararg-idx (get iden->invoke-idx (get bindings var-arg-name)))
       #?@(:cljs [@this-as-vol (assoc :this-as-idx @this-as-vol)]))))
 
 (defn analyzed-fn-meta [ctx m]
@@ -481,7 +500,7 @@
         cb-idens (apply merge (map :syms (vals cb-idens-by-arity)))
         self-ref? (when fn-name (contains? cb-idens fn-id))
         ;; all closed over idens
-        closed-over-idens (filter bound-idens (keys cb-idens))
+        closed-over-idens (seq (filter bound-idens (keys cb-idens)))
         iden->invoke-idx (get-in @closure-bindings (conj (pop parents) :syms))
         ;; this represents the indices of enclosed values in old bindings
         ;; we need to copy those to a new array, the enclosed-array
@@ -544,16 +563,18 @@
                        (let [iden->invocation-idx (:iden->invoke-idx body)
                              invocation-self-idx (:self-ref-idx body)
                              enclosed->invocation
-                             (into-array (keep (fn [iden]
-                                                 (when-let [invocation-idx (iden->invocation-idx iden)]
-                                                   (doto #?(:cljd (#/(List/filled dynamic) 2 nil)
-                                                            :default (object-array 2))
-                                                     (aset 0 (iden->enclosed-idx iden))
-                                                     (aset 1 invocation-idx))))
-                                               closed-over-idens))
+                             (when closed-over-idens
+                               (into-array (keep (fn [iden]
+                                                   (when-let [invocation-idx (iden->invocation-idx iden)]
+                                                     (doto #?(:cljd (#/(List/filled dynamic) 2 nil)
+                                                              :default (object-array 2))
+                                                       (aset 0 (iden->enclosed-idx iden))
+                                                       (aset 1 invocation-idx))))
+                                                 closed-over-idens)))
                              invoc-size (count iden->invocation-idx)
                              copy-enclosed->invocation
-                             (when (pos? (alength #?(:cljd ^List enclosed->invocation :default ^objects enclosed->invocation)))
+                             (when (and enclosed->invocation
+                                        (pos? (alength #?(:cljd ^List enclosed->invocation :default ^objects enclosed->invocation))))
                                #?(:clj
                                   (let [pairs ^objects enclosed->invocation
                                         n (* 2 (alength pairs))
@@ -680,13 +701,16 @@
   (let [parents (:parents ctx)
         new-cb (vswap! closure-bindings
                        (fn [cb]
-                         (update-in cb (conj parents :syms)
-                                    (fn [iden->invoke-idx]
-                                      (if (contains? iden->invoke-idx ob)
-                                        iden->invoke-idx
-                                        (assoc iden->invoke-idx ob (count iden->invoke-idx)))))))
-        closure-idx (get-in new-cb (conj parents :syms ob))]
-    closure-idx))
+                         (let [entry (utils/get-path cb parents)
+                               iden->invoke-idx (:syms entry)]
+                           (if (contains? iden->invoke-idx ob)
+                             cb
+                             (utils/assoc-path
+                              cb parents
+                              (assoc entry :syms
+                                     (assoc iden->invoke-idx
+                                            ob (count iden->invoke-idx))))))))]
+    (get (:syms (utils/get-path new-cb parents)) ob)))
 
 (defn analyze-let*
   [ctx expr destructured-let-bindings exprs]
