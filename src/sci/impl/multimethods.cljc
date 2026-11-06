@@ -4,7 +4,7 @@
   (:require
    #?(:clj [clojure.string :as str])
    [sci.ctx-store :as store]
-   #?(:clj [sci.impl.io :as sio])
+   #?@(:cljd [] :clj [[sci.impl.io :as sio]])
    ;; no hierarchies on cljd, like the host
    #?@(:cljd [] :default [[sci.impl.hierarchies :refer [global-hierarchy]]])))
 
@@ -197,20 +197,21 @@
                 multifn)
       :clj (.addMethod ^clojure.lang.MultiFn multifn (unwrap-class dispatch-val) f)
       :cljs (-add-method multifn dispatch-val f)))
-  #?(:clj
-     ([multifn dispatch-val f kind]
-      (let [f (if (or (identical? :print-method kind) (identical? :print-dup kind))
-                (sio/print-fn-with-host-vars f)
-                f)]
-        (if (and (instance? sci.lang.Type dispatch-val)
-                 (or (identical? :print-method kind) (identical? :simple-dispatch kind)))
-          (do (alter-meta! dispatch-val assoc
-                           (if (identical? :print-method kind)
-                             :sci.impl/print-method
-                             :sci.impl/pprint-simple-dispatch)
-                           f)
-              multifn)
-          (multi-fn-add-method-impl multifn dispatch-val f))))))
+  #?@(:cljd []
+      :clj
+      [([multifn dispatch-val f kind]
+        (let [f (if (or (identical? :print-method kind) (identical? :print-dup kind))
+                  (sio/print-fn-with-host-vars f)
+                  f)]
+          (if (and (instance? sci.lang.Type dispatch-val)
+                   (or (identical? :print-method kind) (identical? :simple-dispatch kind)))
+            (do (alter-meta! dispatch-val assoc
+                             (if (identical? :print-method kind)
+                               :sci.impl/print-method
+                               :sci.impl/pprint-simple-dispatch)
+                             f)
+                multifn)
+            (multi-fn-add-method-impl multifn dispatch-val f))))]))
 
 (defn defmethod
   "Creates and installs a new method of multimethod associated with dispatch-value. "
