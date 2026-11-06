@@ -330,7 +330,7 @@
                                (not (identical? m default)))))
                         (:methods protocol)))
          :default
-         (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
+         (boolean (some #(when-let [m (#?(:clj mms/get-method-impl :cljs get-method) % (types/type-impl obj))]
                            (let [ms (methods %)
                                  default (get ms :default)]
                              (not (identical? m default))))
@@ -435,4 +435,5 @@
   #?(:cljd (boolean (some #(when (instance? mms/SciMultiFn %)
                              (mms/get-method-impl % atype))
                           (:methods protocol)))
-     :default (boolean (some #(get-method % atype) (:methods protocol)))))
+     :clj (boolean (some #(mms/get-method-impl % atype) (:methods protocol)))
+     :cljs (boolean (some #(get-method % atype) (:methods protocol)))))

@@ -1,6 +1,9 @@
 (ns sci.multimethods-test
   (:require
    [clojure.test :as test :refer [deftest is]]
+   #?(:clj [sci.core :as sci])
+   #?(:clj [sci.impl.deftype])
+   #?(:clj [sci.impl.core-protocols])
    [sci.test-utils :as tu]))
 
 (defn eval* [expr]
@@ -109,3 +112,20 @@
        (test/testing "defmethod on clojure.lang/deref for String returns 42 with :unrestricted"
          (is (= 42 (tu/eval* "(defmethod clojure.lang/deref String [_] 42) (let [r (deref \"x\")] (remove-method clojure.lang/deref String) r)"
                              {:unrestricted true})))))))
+
+#?(:cljd nil
+   :clj
+   (deftest type-methods-test
+     (when-not tu/native?
+       (test/testing "deftype in 3 contexts leaves the size of the toString and deref method tables unchanged"
+         (let [sizes #(mapv (comp count methods) [sci.impl.deftype/to-string sci.impl.core-protocols/deref])
+               before (sizes)]
+           (dotimes [_ 3]
+             (sci/eval-string "(deftype T [x] clojure.lang.IDeref (deref [_] x) Object (toString [_] \"t\")) [@(T. 1) (str (T. 1))]"))
+           (is (= before (sizes)))))
+       (test/testing "remove-method on a deftype's toString falls back to the default"
+         (is (= [true false]
+                (tu/eval* "(deftype T [] Object (toString [_] \"t\"))
+(let [a (= \"t\" (str (T.)))]
+  (remove-method sci.impl.deftype/toString T)
+  [a (= \"t\" (str (T.)))])" {})))))))

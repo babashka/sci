@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- `deftype` and `defrecord` methods for built-in interfaces such as `IDeref`, `IFn` and `Object` no longer stay in memory after their context is gone
 - Without `:unrestricted`, adding a method to a built-in multimethod such as `clojure.lang/deref` or `inst-ms*` throws unless the dispatch value is a type, and `methods`, `prefers`, `prefer-method` and `remove-all-methods` on them throw
 - Speed up calls to a named `fn` that does not refer to its own name
 - Speed up analysis of `fn` params (up to 27% on the JVM)

@@ -978,19 +978,19 @@
 
 #?(:clj
    (mm/register-internal-multi-fns!
-    {core-protocols/deref 'clojure.lang/deref
-     core-protocols/swap 'clojure.lang/swap
-     core-protocols/reset 'clojure.lang/reset
-     core-protocols/compareAndSet 'clojure.lang/compareAndSet
-     core-protocols/swapVals 'clojure.lang/swapVals
-     core-protocols/resetVals 'clojure.lang/resetVals
-     core-protocols/inst-ms* 'clojure.core/inst-ms*
-     types/sci-invoke 'clojure.lang/invoke
-     types/sci-apply-to 'clojure.lang/applyTo
-     sci.impl.deftype/to-string 'sci.impl.deftype/toString
-     sci.impl.deftype/equals 'sci.impl.deftype/equals
-     sci.impl.deftype/hashCode 'sci.impl.deftype/hashCode
-     sci.impl.records/to-string 'sci.impl.records/toString}))
+    {core-protocols/deref :clojure.lang/deref
+     core-protocols/swap :clojure.lang/swap
+     core-protocols/reset :clojure.lang/reset
+     core-protocols/compareAndSet :clojure.lang/compareAndSet
+     core-protocols/swapVals :clojure.lang/swapVals
+     core-protocols/resetVals :clojure.lang/resetVals
+     core-protocols/inst-ms* :clojure.core/inst-ms*
+     types/sci-invoke :clojure.lang/invoke
+     types/sci-apply-to :clojure.lang/applyTo
+     sci.impl.deftype/to-string :sci.impl.deftype/toString
+     sci.impl.deftype/equals :sci.impl.deftype/equals
+     sci.impl.deftype/hashCode :sci.impl.deftype/hashCode
+     sci.impl.records/to-string :sci.impl.records/toString}))
 
 (def sci-impl-protocols
   {:obj (sci.lang/->Namespace 'sci.impl.protocols nil)

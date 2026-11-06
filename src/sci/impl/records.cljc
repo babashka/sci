@@ -25,7 +25,7 @@
                                (str (types/type-impl this) "@"
                                     (.toRadixString (hash this) 16)))})))
    :default
-   (do (defmulti to-string types/type-impl)
+   (do (defmulti to-string #?(:clj types/type-method-dispatch :cljs types/type-impl))
        (defmethod to-string :default [this]
          (let [t (types/type-impl this)]
            (str t "@"
@@ -237,7 +237,7 @@
 
      Object
      (toString [this]
-       (to-string this))
+       (types/type-call to-string :sci.impl.records/toString type this))
 
      SciPrintMethod
      (-sci-print-method [this w]
@@ -253,28 +253,28 @@
        type)
 
      clojure.lang.IFn
-     (invoke [this] (types/sci-invoke this))
-     (invoke [this a] (types/sci-invoke this a))
-     (invoke [this a b] (types/sci-invoke this a b))
-     (invoke [this a b c] (types/sci-invoke this a b c))
-     (invoke [this a b c d] (types/sci-invoke this a b c d))
-     (invoke [this a b c d e] (types/sci-invoke this a b c d e))
-     (invoke [this a b c d e f] (types/sci-invoke this a b c d e f))
-     (invoke [this a b c d e f g] (types/sci-invoke this a b c d e f g))
-     (invoke [this a b c d e f g h] (types/sci-invoke this a b c d e f g h))
-     (invoke [this a b c d e f g h i] (types/sci-invoke this a b c d e f g h i))
-     (invoke [this a b c d e f g h i j] (types/sci-invoke this a b c d e f g h i j))
-     (invoke [this a b c d e f g h i j k] (types/sci-invoke this a b c d e f g h i j k))
-     (invoke [this a b c d e f g h i j k l] (types/sci-invoke this a b c d e f g h i j k l))
-     (invoke [this a b c d e f g h i j k l m] (types/sci-invoke this a b c d e f g h i j k l m))
-     (invoke [this a b c d e f g h i j k l m n] (types/sci-invoke this a b c d e f g h i j k l m n))
-     (invoke [this a b c d e f g h i j k l m n o] (types/sci-invoke this a b c d e f g h i j k l m n o))
-     (invoke [this a b c d e f g h i j k l m n o p] (types/sci-invoke this a b c d e f g h i j k l m n o p))
-     (invoke [this a b c d e f g h i j k l m n o p q] (types/sci-invoke this a b c d e f g h i j k l m n o p q))
-     (invoke [this a b c d e f g h i j k l m n o p q r] (types/sci-invoke this a b c d e f g h i j k l m n o p q r))
-     (invoke [this a b c d e f g h i j k l m n o p q r s] (types/sci-invoke this a b c d e f g h i j k l m n o p q r s))
-     (invoke [this a b c d e f g h i j k l m n o p q r s t] (types/sci-invoke this a b c d e f g h i j k l m n o p q r s t))
-     (applyTo [this args] (types/sci-apply-to this args))))
+     (invoke [this] (types/type-call types/sci-invoke :clojure.lang/invoke type this))
+     (invoke [this a] (types/type-call types/sci-invoke :clojure.lang/invoke type this a))
+     (invoke [this a b] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b))
+     (invoke [this a b c] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c))
+     (invoke [this a b c d] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d))
+     (invoke [this a b c d e] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e))
+     (invoke [this a b c d e f] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e f))
+     (invoke [this a b c d e f g] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e f g))
+     (invoke [this a b c d e f g h] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e f g h))
+     (invoke [this a b c d e f g h i] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e f g h i))
+     (invoke [this a b c d e f g h i j] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e f g h i j))
+     (invoke [this a b c d e f g h i j k] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e f g h i j k))
+     (invoke [this a b c d e f g h i j k l] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e f g h i j k l))
+     (invoke [this a b c d e f g h i j k l m] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e f g h i j k l m))
+     (invoke [this a b c d e f g h i j k l m n] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e f g h i j k l m n))
+     (invoke [this a b c d e f g h i j k l m n o] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e f g h i j k l m n o))
+     (invoke [this a b c d e f g h i j k l m n o p] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e f g h i j k l m n o p))
+     (invoke [this a b c d e f g h i j k l m n o p q] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e f g h i j k l m n o p q))
+     (invoke [this a b c d e f g h i j k l m n o p q r] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e f g h i j k l m n o p q r))
+     (invoke [this a b c d e f g h i j k l m n o p q r s] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e f g h i j k l m n o p q r s))
+     (invoke [this a b c d e f g h i j k l m n o p q r s t] (types/type-call types/sci-invoke :clojure.lang/invoke type this a b c d e f g h i j k l m n o p q r s t))
+     (applyTo [this args] (types/type-call types/sci-apply-to :clojure.lang/applyTo type this args))))
 
 ;; See https://github.com/clojure/clojurescript/blob/9562ae11422243e0648a12c39e7c990ef3f94260/src/main/clojure/cljs/core.cljc#L1804
 #?(:cljs (declare clone-record*))
