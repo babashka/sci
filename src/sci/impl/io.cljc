@@ -82,6 +82,71 @@
             (print-method x w))
           nil))
 
+#?(:clj
+   (defn print-fn-with-host-vars
+     "Returns print method f wrapped to run with SCI's print vars bound to
+  the values of Clojure's."
+     [f]
+     (fn [x w]
+       (let [length *print-length*
+             level *print-level*
+             meta? *print-meta*
+             ns-maps *print-namespace-maps*
+             readably *print-readably*
+             dup *print-dup*]
+         (if (and (identical? length @print-length)
+                  (identical? level @print-level)
+                  (identical? meta? @print-meta)
+                  (identical? ns-maps @print-namespace-maps)
+                  (identical? readably @print-readably)
+                  (identical? dup @print-dup-var))
+           (f x w)
+           (vars/with-bindings {print-length length
+                                print-level level
+                                print-meta meta?
+                                print-namespace-maps ns-maps
+                                print-readably readably
+                                print-dup-var dup}
+             (f x w)))))))
+
+#?(:clj
+   (defn print-multi-fn
+     "Returns a MultiFn that delegates to host-fn and binds Clojure's print
+  vars to the values of SCI's for each call."
+     [fn-name ^clojure.lang.MultiFn host-fn]
+     (proxy [clojure.lang.MultiFn] [fn-name
+                                    (.-dispatchFn host-fn)
+                                    (.-defaultDispatchVal host-fn)
+                                    (.-hierarchy host-fn)]
+       (invoke [x w]
+         (let [length @print-length
+               level @print-level
+               meta? @print-meta
+               ns-maps @print-namespace-maps
+               readably @print-readably
+               dup @print-dup-var]
+           (if (and (identical? length *print-length*)
+                    (identical? level *print-level*)
+                    (identical? meta? *print-meta*)
+                    (identical? ns-maps *print-namespace-maps*)
+                    (identical? readably *print-readably*)
+                    (identical? dup *print-dup*))
+             (host-fn x w)
+             (binding [*print-length* length
+                       *print-level* level
+                       *print-meta* meta?
+                       *print-namespace-maps* ns-maps
+                       *print-readably* readably
+                       *print-dup* dup]
+               (host-fn x w)))))
+       (addMethod [dispatch-val f] (.addMethod host-fn dispatch-val f) this)
+       (removeMethod [dispatch-val] (.removeMethod host-fn dispatch-val) this)
+       (preferMethod [x y] (.preferMethod host-fn x y) this)
+       (reset [] (.reset host-fn) this)
+       (getMethod [dispatch-val] (.getMethod host-fn dispatch-val))
+       (getMethodTable [] (.getMethodTable host-fn))
+       (getPreferTable [] (.getPreferTable host-fn)))))
+
 #?(:clj (defn core-pr-on
           [x w]
           (binding [*print-length* @print-length
