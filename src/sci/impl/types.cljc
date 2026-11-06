@@ -137,10 +137,28 @@
          :clj (class x) ;; no need to check for metadata anymore
          :cljs (type x))))
 
+#?(:clj
+   (defmacro type-call
+     "Calls the method stored under k in the metadata of the SCI type t with this and args, or the :default method of multifn if absent."
+     [multifn k t this & args]
+     `(let [f# (get (.meta ~(with-meta t {:tag 'clojure.lang.IMeta})) ~k)]
+        (if (nil? f#)
+          ((.getMethod ~(with-meta multifn {:tag 'clojure.lang.MultiFn}) :default) ~this ~@args)
+          (f# ~this ~@args)))))
+
+#?(:clj
+   (defn type-method-dispatch
+     "Returns :sci.impl/type-method for an instance of a SCI type, :sci.impl.protocols/reified for a reify, or the class of x otherwise."
+     [x & _]
+     (cond (instance? sci.impl.types.SciTypeInstance x) :sci.impl/type-method
+           (instance? sci.impl.types.ICustomType x) :sci.impl.protocols/reified
+           :else (class x))))
+
 #?(:cljs (defmulti sci-pr-writer (fn [x & _] (type-impl x))))
 #?(:cljd (def sci-invoke (mm/->SciMultiFn 'sci-invoke (fn [x & _] (type-impl x)) :default (atom {})))
-   :default (defmulti sci-invoke (fn [x & _] (type-impl x))))
-#?(:cljd nil :clj (defmulti sci-apply-to (fn [x & _] (type-impl x))))
+   :clj (defmulti sci-invoke type-method-dispatch)
+   :cljs (defmulti sci-invoke (fn [x & _] (type-impl x))))
+#?(:cljd nil :clj (defmulti sci-apply-to type-method-dispatch))
 #?(:cljd nil :clj (defmethod sci-apply-to :default [x args]
                     (apply sci-invoke x args)))
 

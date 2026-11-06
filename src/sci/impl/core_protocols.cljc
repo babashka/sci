@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [deref -deref -swap! -reset! inst-ms inst-ms*])
   (:require
    [sci.impl.deftype]
-   #?(:cljd [sci.impl.multimethods :as mm])
+   #?@(:cljs [] :default [[sci.impl.multimethods :as mm]])
    #?(:cljs [sci.impl.copy-vars :as copy-vars])
    [sci.impl.records]
    [sci.impl.types :as types]
@@ -25,7 +25,7 @@
                              :default
                              (fn [ref] (clojure.core/deref ref))})))
    :clj
-   (do (defmulti deref types/type-impl)
+   (do (defmulti deref types/type-method-dispatch)
 
        (defmethod deref :sci.impl.protocols/reified [ref]
          (let [methods (types/getMethods ref)]
@@ -47,9 +47,10 @@
    :clj
    (defn deref*
      ([x]
-      (if (instance? clojure.lang.IDeref x)
-        (clojure.core/deref x)
-        (deref x)))
+      (cond (instance? clojure.lang.IDeref x) (clojure.core/deref x)
+            (instance? sci.impl.types.SciTypeInstance x)
+            (types/type-call deref :clojure.lang/deref (types/-get-type x) x)
+            :else (deref x)))
      ([x & args]
       (apply clojure.core/deref x args))))
 
@@ -106,7 +107,7 @@
                              :default
                              (fn [ref f & args]
                                (apply clojure.core/swap! ref f args))})))
-   :clj (defmulti swap types/type-impl))
+   :clj (defmulti swap types/type-method-dispatch))
 #?(:cljd
    (def -reset!
      (mm/->SciMultiFn '-reset! types/type-impl :default
@@ -115,10 +116,10 @@
                                ((get (types/getMethods ref) '-reset!) ref v))
                              :default
                              (fn [ref v] (reset! ref v))})))
-   :clj (defmulti reset types/type-impl))
-#?(:clj (defmulti compareAndSet types/type-impl))
-#?(:clj (defmulti swapVals types/type-impl))
-#?(:clj (defmulti resetVals types/type-impl))
+   :clj (defmulti reset types/type-method-dispatch))
+#?(:clj (defmulti compareAndSet types/type-method-dispatch))
+#?(:clj (defmulti swapVals types/type-method-dispatch))
+#?(:clj (defmulti resetVals types/type-method-dispatch))
 
 ;;;; Protocol methods
 
@@ -344,7 +345,8 @@
        :cljs (cljs.core/implements? types/SciTypeInstance x))
     ;; cljd has no get-method, query the SciMultiFn method-table directly
     #?(:cljd (boolean (mm/get-method-impl types/sci-invoke (types/type-impl x)))
-       :default (boolean (get-method types/sci-invoke (types/type-impl x))))
+       :clj (boolean (mm/get-method-impl types/sci-invoke (types/type-impl x)))
+       :cljs (boolean (get-method types/sci-invoke (types/type-impl x))))
     #?@(:cljd [(instance? types/Reified x)
                (boolean (get (types/getMethods x) '-invoke))]
         :clj [(instance? clojure.lang.IFn x) true]
@@ -363,7 +365,7 @@
 
 #?(:clj
    (do
-     (defmulti inst-ms* types/type-impl)
+     (defmulti inst-ms* types/type-method-dispatch)
 
      (defmethod inst-ms* :sci.impl.protocols/reified [x]
        (let [methods (types/getMethods x)]

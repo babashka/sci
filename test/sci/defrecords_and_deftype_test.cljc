@@ -69,7 +69,12 @@
                   (get-area [this]
                     (* width height)))
 (extends? Area Rectangle)"]
-    (is (true? (tu/eval* prog {})))))
+    (is (true? (tu/eval* prog {}))))
+  (testing "extends? on a type without methods for the protocol returns false"
+    (is (false? (tu/eval* "(defprotocol Area (get-area [this])) (deftype X []) (extends? Area X)" {})))
+    #?(:clj (is (= [false false true]
+                   (tu/eval* "(deftype X []) (deftype Y [] clojure.lang.IDeref (deref [_] 1))
+[(extends? clojure.lang/IDeref X) (extends? clojure.lang/IFn X) (extends? clojure.lang/IDeref Y)]" {}))))))
 
 (deftest multiple-functions-test
   (let [prog "

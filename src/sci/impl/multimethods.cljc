@@ -4,7 +4,8 @@
   (:require
    #?(:clj [clojure.string :as str])
    [sci.ctx-store :as store]
-   #?@(:cljd [] :clj [[sci.impl.io :as sio]])
+   #?@(:cljd [] :clj [[sci.impl.io :as sio]
+                      [sci.impl.types :as types]])
    ;; no hierarchies on cljd, like the host
    #?@(:cljd [] :default [[sci.impl.hierarchies :refer [global-hierarchy]]])))
 
@@ -184,19 +185,42 @@
          (:class dispatch-val)
          dispatch-val))
      (def ^:private internal-multi-fns (volatile! {}))
+     (defn- type-method-fn
+       "Returns the :sci.impl/type-method method of multifn.
+  It calls the method stored under nm in the metadata of the SCI type of its first argument, or the :default method if absent."
+       [^clojure.lang.MultiFn multifn nm]
+       (let [lookup (fn [x]
+                      (or (get (meta (types/-get-type x)) nm)
+                          (.getMethod multifn :default)))]
+         (fn
+           ([x] ((lookup x) x))
+           ([x a] ((lookup x) x a))
+           ([x a b] ((lookup x) x a b))
+           ([x a b c] ((lookup x) x a b c))
+           ([x a b c & more] (apply (lookup x) x a b c more)))))
      (defn register-internal-multi-fns!
-       "Sets the multimethods shared by all contexts.
+       "Sets the multimethods shared by all contexts and adds their :sci.impl/type-method method.
   m maps each multimethod to its name."
        [m]
+       (doseq [[^clojure.lang.MultiFn multifn nm] m]
+         (.addMethod multifn :sci.impl/type-method (type-method-fn multifn nm)))
        (vreset! internal-multi-fns m))
+     (defn- internal-type-method?
+       "Returns the name of multifn, or nil if multifn is not a built-in multimethod or dispatch-val is not a SCI type."
+       [multifn dispatch-val]
+       (when (instance? sci.lang.Type dispatch-val)
+         (get @internal-multi-fns multifn)))
      (defn- check-internal-multi-fn [multifn dispatch-val]
        (when-let [nm (get @internal-multi-fns multifn)]
          (when-not (or (instance? sci.lang.Type dispatch-val)
                        (:unrestricted (store/get-ctx)))
-           (throw (ex-info (str "Access to " nm " requires the :unrestricted option")
+           (throw (ex-info (str "Access to " (symbol nm) " requires the :unrestricted option")
                            {:multimethod nm})))))
      (defn get-method-impl [multifn dispatch-val]
-       (get-method multifn (unwrap-class dispatch-val)))
+       (if-let [nm (internal-type-method? multifn dispatch-val)]
+         (or (get (meta dispatch-val) nm)
+             (get-method multifn :default))
+         (get-method multifn (unwrap-class dispatch-val))))
      (defn methods-impl [multifn]
        (check-internal-multi-fn multifn nil)
        (methods multifn))
@@ -208,7 +232,10 @@
        (prefer-method multifn (unwrap-class dispatch-val-x) (unwrap-class dispatch-val-y)))
      (defn remove-method-impl [multifn dispatch-val]
        (check-internal-multi-fn multifn dispatch-val)
-       (remove-method multifn (unwrap-class dispatch-val)))
+       (if-let [nm (internal-type-method? multifn dispatch-val)]
+         (do (alter-meta! dispatch-val dissoc nm)
+             multifn)
+         (remove-method multifn (unwrap-class dispatch-val))))
      (defn remove-all-methods-impl [multifn]
        (check-internal-multi-fn multifn nil)
        (remove-all-methods multifn))))
@@ -219,7 +246,10 @@
                        (normalize-dispatch-val dispatch-val) f)
                 multifn)
       :clj (do (check-internal-multi-fn multifn dispatch-val)
-               (.addMethod ^clojure.lang.MultiFn multifn (unwrap-class dispatch-val) f))
+               (if-let [nm (internal-type-method? multifn dispatch-val)]
+                 (do (alter-meta! dispatch-val assoc nm f)
+                     multifn)
+                 (.addMethod ^clojure.lang.MultiFn multifn (unwrap-class dispatch-val) f)))
       :cljs (-add-method multifn dispatch-val f)))
   #?@(:cljd []
       :clj
