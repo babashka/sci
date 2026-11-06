@@ -203,7 +203,16 @@
   #?(:cljd
      (list 'clojure.core/multi-fn-add-method-impl multifn dispatch-val (list* 'fn fn-tail))
      :clj
-     (let [multifn-str (str multifn)]
+     (let [multifn-str (str multifn)
+           f (if (or (str/ends-with? multifn-str "print-method")
+                     (str/ends-with? multifn-str "print-dup"))
+               `(let [f# (fn ~@fn-tail)
+                      mf# (resolve '~multifn)]
+                  (if (or (= (resolve 'clojure.core/print-method) mf#)
+                          (= (resolve 'clojure.core/print-dup) mf#))
+                    (clojure.core/print-fn-with-host-vars f#)
+                    f#))
+               `(fn ~@fn-tail))]
        (if (or (str/ends-with? multifn-str "print-method")
                (str/ends-with? multifn-str "simple-dispatch"))
          `(let [v# ~dispatch-val
@@ -220,9 +229,9 @@
                   (= (resolve 'clojure.pprint/simple-dispatch) mf#)
                   (alter-meta! v# assoc :sci.impl/pprint-simple-dispatch (fn ~@fn-tail))
                   (= (resolve 'clojure.core/print-method) mf#)
-                  (alter-meta! v# assoc :sci.impl/print-method (fn ~@fn-tail))
-                  :else (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
-              (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
-         `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
+                  (alter-meta! v# assoc :sci.impl/print-method ~f)
+                  :else (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val ~f)))
+              (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val ~f)))
+         `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val ~f)))
      :cljs
      (list 'clojure.core/multi-fn-add-method-impl multifn dispatch-val (list* 'fn fn-tail))))
