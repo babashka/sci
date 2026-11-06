@@ -145,7 +145,7 @@
 #?(:cljd nil
    :clj
    (defn- not-extendable-message
-     "Returns an error message if proto stands for a Java interface, or nil if proto is a protocol."
+     "Returns an error message if proto is a Java interface, or nil if proto is a protocol."
      [proto]
      (let [c (or (:class proto) (:protocol proto))]
        (when (class? c)
