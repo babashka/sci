@@ -4,6 +4,8 @@
    #?(:clj [sci.core :as sci])
    #?(:clj [sci.impl.deftype])
    #?(:clj [sci.impl.core-protocols])
+   #?(:clj [sci.impl.records])
+   #?(:clj [sci.impl.types])
    [sci.test-utils :as tu]))
 
 (defn eval* [expr]
@@ -117,12 +119,34 @@
    :clj
    (deftest type-methods-test
      (when-not tu/native?
-       (test/testing "deftype in 3 contexts leaves the size of the toString and deref method tables unchanged"
-         (let [sizes #(mapv (comp count methods) [sci.impl.deftype/to-string sci.impl.core-protocols/deref])
+       (test/testing "restricted contexts leave the method tables, dispatch caches and Inst :satisfies of built-in multimethods unchanged"
+         (let [multis [sci.impl.deftype/to-string sci.impl.deftype/equals sci.impl.deftype/hashCode
+                       sci.impl.records/to-string sci.impl.core-protocols/deref sci.impl.core-protocols/inst-ms*
+                       sci.impl.types/sci-invoke sci.impl.types/sci-apply-to]
+               cache-field (doto (.getDeclaredField clojure.lang.MultiFn "methodCache") (.setAccessible true))
+               sizes (fn []
+                       [(mapv (comp count methods) multis)
+                        (mapv #(count (.get cache-field %)) multis)
+                        (count (:satisfies @sci.impl.core-protocols/inst-protocol))])
+               run (fn [i]
+                     (sci/eval-string
+                      (str "(defrecord R" i " [t] Inst (inst-ms* [_] t))
+(defrecord S" i " []) (extend-type S" i " Inst (inst-ms* [_] 1))
+(deftype T [x] clojure.lang.IDeref (deref [_] x) clojure.lang.IFn (invoke [_ a] a)
+  Object (toString [_] \"t\") (hashCode [_] 1) (equals [_ o] true))
+(try (deref (with-meta [] {:type (keyword (str \"k\" " i "))})) (catch Exception _ nil))
+(try (deref (with-meta [] {:type T})) (catch Exception _ nil))
+(try (inst-ms (with-meta {} {:type T})) (catch Exception _ nil))
+[@(T. 1) ((T. 1) 2) (apply (T. 1) [2]) (str (T. 1)) (hash (T. 1)) (= (T. 1) 2)
+ (inst-ms (->R" i " 3)) (inst? (->R" i " 3)) (inst? (->S" i "))]")))
+               _ (run 0)
                before (sizes)]
-           (dotimes [_ 3]
-             (sci/eval-string "(deftype T [x] clojure.lang.IDeref (deref [_] x) Object (toString [_] \"t\")) [@(T. 1) (str (T. 1))]"))
+           (is (= [1 2 2 "t" 1 true 3 true true] (run 1)))
+           (dotimes [i 5] (run (+ 2 i)))
            (is (= before (sizes)))))
+       (test/testing "inst? on user.Shared returns false if another context extended its own user.Shared to Inst"
+         (sci/eval-string "(defrecord Shared []) (extend-type Shared Inst (inst-ms* [_] 1))")
+         (is (false? (sci/eval-string "(defrecord Shared []) (inst? (->Shared))"))))
        (test/testing "remove-method on a deftype's toString falls back to the default"
          (is (= [true false]
                 (tu/eval* "(deftype T [] Object (toString [_] \"t\"))

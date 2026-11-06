@@ -996,7 +996,8 @@
   {:obj (sci.lang/->Namespace 'sci.impl.protocols nil)
    :private true
    #?@(:cljs ['-extend-native! sci.impl.protocols/-extend-native!])
-   'type->str sci.impl.protocols/type->str})
+   'type->str sci.impl.protocols/type->str
+   '-extend-satisfies! sci.impl.protocols/-extend-satisfies!})
 
 ;;;; REPL vars
 

@@ -14,6 +14,7 @@
    [sci.impl.multimethods :as mms]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
+   [sci.impl.vars :as vars]
    #?(:cljd [sci.lang :as lang] :default [sci.lang])))
 
 #?(:cljs
@@ -254,6 +255,16 @@
         (and (map? t) (:class t)) (str (:class t))
         :else (str t)))
 
+(defn -extend-satisfies!
+  "Adds the name of type t to :satisfies of protocol var v and returns nil.
+  Skips a SCI type on clojure.core/Inst, which is shared by all contexts."
+  [v t]
+  (when-not #?(:clj (and (identical? v core-protocols/inst-protocol)
+                         (instance? sci.lang.Type t))
+               :default false)
+    (vars/alter-var-root v update :satisfies (fnil conj #{}) (type->str t)))
+  nil)
+
 (defn extend-protocol [form _ protocol-name & impls]
   (let [ctx (store/get-ctx)
         impls (utils/split-when #(not (seq? %)) impls)
@@ -277,10 +288,8 @@
                         `(sci.impl.protocols/-extend-native!
                           ~type ~protocol-name ~(native-method-impls meths))
                         `(do
-                           (clojure.core/alter-var-root
-                            (var ~protocol-name) update :satisfies (fnil conj #{})
-                            (type->str ~type))
-                           ~@(process-methods ctx type meths pns extend-via-metadata)))))
+                           ~@(process-methods ctx type meths pns extend-via-metadata)
+                           (sci.impl.protocols/-extend-satisfies! (var ~protocol-name) ~type)))))
                   impls))]
     expansion))
 
@@ -302,10 +311,8 @@
                         pns (str (types/getName protocol-ns))
                         extend-via-metadata (:extend-via-metadata proto-data)]
                     `(do
-                       (clojure.core/alter-var-root
-                        (var ~proto) update :satisfies (fnil conj #{})
-                        (type->str ~atype))
-                       ~@(process-methods ctx atype meths pns extend-via-metadata))))))
+                       ~@(process-methods ctx atype meths pns extend-via-metadata)
+                       (sci.impl.protocols/-extend-satisfies! (var ~proto) ~atype))))))
             proto+meths))))
 
 ;; IAtom can be implemented as a protocol on reify and defrecords in sci

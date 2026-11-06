@@ -148,11 +148,11 @@
 
 #?(:clj
    (defn type-method-dispatch
-     "Returns :sci.impl/type-method for an instance of a SCI type, or the result of type-impl otherwise."
+     "Returns :sci.impl/type-method for an instance of a SCI type, :sci.impl.protocols/reified for a reify, or the class of x otherwise."
      [x & _]
-     (if (instance? sci.impl.types.SciTypeInstance x)
-       :sci.impl/type-method
-       (type-impl x))))
+     (cond (instance? sci.impl.types.SciTypeInstance x) :sci.impl/type-method
+           (instance? sci.impl.types.ICustomType x) :sci.impl.protocols/reified
+           :else (class x))))
 
 #?(:cljs (defmulti sci-pr-writer (fn [x & _] (type-impl x))))
 #?(:cljd (def sci-invoke (mm/->SciMultiFn 'sci-invoke (fn [x & _] (type-impl x)) :default (atom {})))
