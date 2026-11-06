@@ -122,7 +122,8 @@
 (deftest print-dup-test
   (is (= "\"hello\"" (eval* "(binding [*print-dup* true] (pr-str \"hello\"))"))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest print-method-print-vars-test
      (when-not tu/native?
        (let [eval-pm #(tu/eval* % {:namespaces {'clojure.core {'print-method (sio/print-multi-fn "print-method" print-method)}}
