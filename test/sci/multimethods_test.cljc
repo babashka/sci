@@ -79,3 +79,33 @@
  (foo :bar 1 2 3)
  (foo :bar 1 2 3 4)]
 "))))
+
+#?(:cljd nil
+   :clj
+   (deftest internal-multimethods-test
+     (when-not tu/native?
+       (test/testing "defmethod on clojure.lang/deref for String throws without :unrestricted"
+         (is (thrown-with-msg? Exception #"Access to clojure.lang/deref requires the :unrestricted option"
+                               (eval* "(defmethod clojure.lang/deref String [_] 42)"))))
+       (test/testing "defmethod on clojure.lang/deref for reified objects throws"
+         (is (thrown-with-msg? Exception #"clojure.lang/deref"
+                               (eval* "(defmethod clojure.lang/deref :sci.impl.protocols/reified [_] 42)"))))
+       (test/testing "defmethod on inst-ms* :default throws"
+         (is (thrown-with-msg? Exception #"clojure.core/inst-ms\*"
+                               (eval* "(defmethod inst-ms* :default [_] 42)"))))
+       (test/testing "extend-type String Inst throws"
+         (is (thrown-with-msg? Exception #"clojure.core/inst-ms\*"
+                               (eval* "(extend-type String Inst (inst-ms* [_] 42))"))))
+       (test/testing "remove-all-methods on sci.impl.deftype/toString throws"
+         (is (thrown-with-msg? Exception #"sci.impl.deftype/toString"
+                               (eval* "(remove-all-methods sci.impl.deftype/toString)"))))
+       (test/testing "methods on clojure.lang/deref throws"
+         (is (thrown-with-msg? Exception #"clojure.lang/deref"
+                               (eval* "(methods clojure.lang/deref)"))))
+       (test/testing "deftype with IDeref and toString returns [1 \"t\"]"
+         (is (= [1 "t"] (eval* "(deftype T [x] clojure.lang.IDeref (deref [_] x) Object (toString [_] \"t\")) [@(T. 1) (str (T. 1))]"))))
+       (test/testing "defrecord with Inst returns 3 from inst-ms"
+         (is (= 3 (eval* "(defrecord R [t] Inst (inst-ms* [_] t)) (inst-ms (->R 3))"))))
+       (test/testing "defmethod on clojure.lang/deref for String returns 42 with :unrestricted"
+         (is (= 42 (tu/eval* "(defmethod clojure.lang/deref String [_] 42) (let [r (deref \"x\")] (remove-method clojure.lang/deref String) r)"
+                             {:unrestricted true})))))))

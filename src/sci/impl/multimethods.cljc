@@ -183,19 +183,43 @@
        (if (and (map? dispatch-val) (class? (:class dispatch-val)))
          (:class dispatch-val)
          dispatch-val))
+     (def ^:private internal-multi-fns (volatile! {}))
+     (defn register-internal-multi-fns!
+       "Sets the multimethods shared by all contexts.
+  m maps each multimethod to its name."
+       [m]
+       (vreset! internal-multi-fns m))
+     (defn- check-internal-multi-fn [multifn dispatch-val]
+       (when-let [nm (get @internal-multi-fns multifn)]
+         (when-not (or (instance? sci.lang.Type dispatch-val)
+                       (:unrestricted (store/get-ctx)))
+           (throw (ex-info (str "Access to " nm " requires the :unrestricted option")
+                           {:multimethod nm})))))
      (defn get-method-impl [multifn dispatch-val]
        (get-method multifn (unwrap-class dispatch-val)))
+     (defn methods-impl [multifn]
+       (check-internal-multi-fn multifn nil)
+       (methods multifn))
+     (defn prefers-impl [multifn]
+       (check-internal-multi-fn multifn nil)
+       (prefers multifn))
      (defn prefer-method-impl [multifn dispatch-val-x dispatch-val-y]
+       (check-internal-multi-fn multifn nil)
        (prefer-method multifn (unwrap-class dispatch-val-x) (unwrap-class dispatch-val-y)))
      (defn remove-method-impl [multifn dispatch-val]
-       (remove-method multifn (unwrap-class dispatch-val)))))
+       (check-internal-multi-fn multifn dispatch-val)
+       (remove-method multifn (unwrap-class dispatch-val)))
+     (defn remove-all-methods-impl [multifn]
+       (check-internal-multi-fn multifn nil)
+       (remove-all-methods multifn))))
 
 (defn multi-fn-add-method-impl
   ([multifn dispatch-val f]
    #?(:cljd (do (swap! (.-method-table ^SciMultiFn multifn) assoc
                        (normalize-dispatch-val dispatch-val) f)
                 multifn)
-      :clj (.addMethod ^clojure.lang.MultiFn multifn (unwrap-class dispatch-val) f)
+      :clj (do (check-internal-multi-fn multifn dispatch-val)
+               (.addMethod ^clojure.lang.MultiFn multifn (unwrap-class dispatch-val) f))
       :cljs (-add-method multifn dispatch-val f)))
   #?@(:cljd []
       :clj
