@@ -197,24 +197,7 @@
            ([x a] ((lookup x) x a))
            ([x a b] ((lookup x) x a b))
            ([x a b c] ((lookup x) x a b c))
-           ([x a b c d] ((lookup x) x a b c d))
-           ([x a b c d e] ((lookup x) x a b c d e))
-           ([x a b c d e f] ((lookup x) x a b c d e f))
-           ([x a b c d e f g] ((lookup x) x a b c d e f g))
-           ([x a b c d e f g h] ((lookup x) x a b c d e f g h))
-           ([x a b c d e f g h i] ((lookup x) x a b c d e f g h i))
-           ([x a b c d e f g h i j] ((lookup x) x a b c d e f g h i j))
-           ([x a b c d e f g h i j k] ((lookup x) x a b c d e f g h i j k))
-           ([x a b c d e f g h i j k l] ((lookup x) x a b c d e f g h i j k l))
-           ([x a b c d e f g h i j k l m] ((lookup x) x a b c d e f g h i j k l m))
-           ([x a b c d e f g h i j k l m n] ((lookup x) x a b c d e f g h i j k l m n))
-           ([x a b c d e f g h i j k l m n o] ((lookup x) x a b c d e f g h i j k l m n o))
-           ([x a b c d e f g h i j k l m n o p] ((lookup x) x a b c d e f g h i j k l m n o p))
-           ([x a b c d e f g h i j k l m n o p q] ((lookup x) x a b c d e f g h i j k l m n o p q))
-           ([x a b c d e f g h i j k l m n o p q r] ((lookup x) x a b c d e f g h i j k l m n o p q r))
-           ([x a b c d e f g h i j k l m n o p q r s] ((lookup x) x a b c d e f g h i j k l m n o p q r s))
-           ([x a b c d e f g h i j k l m n o p q r s & more]
-            (apply (lookup x) x a b c d e f g h i j k l m n o p q r s more)))))
+           ([x a b c & more] (apply (lookup x) x a b c more)))))
      (defn register-internal-multi-fns!
        "Sets the multimethods shared by all contexts and adds their :sci.impl/type-method method.
   m maps each multimethod to its name."
