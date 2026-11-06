@@ -1474,7 +1474,6 @@
      #?@(:cljd ['methods (new-var 'methods sci.impl.multimethods/methods-impl clojure-core-ns)]
          :default ['methods (copy-core-var methods)])
      'multi-fn-add-method-impl (copy-var sci.impl.multimethods/multi-fn-add-method-impl clojure-core-ns)
-     #?@(:clj ['print-fn-with-host-vars (copy-var sci.impl.io/print-fn-with-host-vars clojure-core-ns)])
      'multi-fn?-impl (copy-var sci.impl.multimethods/multi-fn?-impl clojure-core-ns)
      'multi-fn-impl (copy-var sci.impl.multimethods/multi-fn-impl clojure-core-ns)
      #?@(:cljd []

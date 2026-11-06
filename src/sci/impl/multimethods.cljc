@@ -4,6 +4,7 @@
   (:require
    #?(:clj [clojure.string :as str])
    [sci.ctx-store :as store]
+   #?(:clj [sci.impl.io :as sio])
    ;; no hierarchies on cljd, like the host
    #?@(:cljd [] :default [[sci.impl.hierarchies :refer [global-hierarchy]]])))
 
@@ -190,12 +191,26 @@
        (remove-method multifn (unwrap-class dispatch-val)))))
 
 (defn multi-fn-add-method-impl
-  [multifn dispatch-val f]
-  #?(:cljd (do (swap! (.-method-table ^SciMultiFn multifn) assoc
-                      (normalize-dispatch-val dispatch-val) f)
-               multifn)
-     :clj (.addMethod ^clojure.lang.MultiFn multifn (unwrap-class dispatch-val) f)
-     :cljs (-add-method multifn dispatch-val f)))
+  ([multifn dispatch-val f]
+   #?(:cljd (do (swap! (.-method-table ^SciMultiFn multifn) assoc
+                       (normalize-dispatch-val dispatch-val) f)
+                multifn)
+      :clj (.addMethod ^clojure.lang.MultiFn multifn (unwrap-class dispatch-val) f)
+      :cljs (-add-method multifn dispatch-val f)))
+  #?(:clj
+     ([multifn dispatch-val f kind]
+      (let [f (if (or (identical? :print-method kind) (identical? :print-dup kind))
+                (sio/print-fn-with-host-vars f)
+                f)]
+        (if (and (instance? sci.lang.Type dispatch-val)
+                 (or (identical? :print-method kind) (identical? :simple-dispatch kind)))
+          (do (alter-meta! dispatch-val assoc
+                           (if (identical? :print-method kind)
+                             :sci.impl/print-method
+                             :sci.impl/pprint-simple-dispatch)
+                           f)
+              multifn)
+          (multi-fn-add-method-impl multifn dispatch-val f))))))
 
 (defn defmethod
   "Creates and installs a new method of multimethod associated with dispatch-value. "
@@ -203,35 +218,16 @@
   #?(:cljd
      (list 'clojure.core/multi-fn-add-method-impl multifn dispatch-val (list* 'fn fn-tail))
      :clj
-     (let [multifn-str (str multifn)
-           f (if (or (str/ends-with? multifn-str "print-method")
-                     (str/ends-with? multifn-str "print-dup"))
-               `(let [f# (fn ~@fn-tail)
-                      mf# (resolve '~multifn)]
-                  (if (or (= (resolve 'clojure.core/print-method) mf#)
-                          (= (resolve 'clojure.core/print-dup) mf#))
-                    (clojure.core/print-fn-with-host-vars f#)
-                    f#))
-               `(fn ~@fn-tail))]
+     (let [multifn-str (str multifn)]
        (if (or (str/ends-with? multifn-str "print-method")
+               (str/ends-with? multifn-str "print-dup")
                (str/ends-with? multifn-str "simple-dispatch"))
-         `(let [v# ~dispatch-val
-                m# (meta v#)
-                mf# (resolve '~multifn)]
-            ;; TODO: what about deftype - how can we detect deftype at runtime?
-            ;; Should we inject the ctx here to resolve the type? no, because type can really be dynamic?
-            ;; thus we need a way to detect if a value is an instance of a record or type
-            ;; or change `type` to return the deftype type, wouldn't this work?
-            ;; no, because print-method looks at core type
-            (if (instance? sci.lang.Type v#)
-              (do
-                (cond
-                  (= (resolve 'clojure.pprint/simple-dispatch) mf#)
-                  (alter-meta! v# assoc :sci.impl/pprint-simple-dispatch (fn ~@fn-tail))
-                  (= (resolve 'clojure.core/print-method) mf#)
-                  (alter-meta! v# assoc :sci.impl/print-method ~f)
-                  :else (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val ~f)))
-              (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val ~f)))
-         `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val ~f)))
+         `(clojure.core/multi-fn-add-method-impl
+           ~multifn ~dispatch-val (fn ~@fn-tail)
+           (let [mf# (resolve '~multifn)]
+             (cond (= (resolve 'clojure.core/print-method) mf#) :print-method
+                   (= (resolve 'clojure.core/print-dup) mf#) :print-dup
+                   (= (resolve 'clojure.pprint/simple-dispatch) mf#) :simple-dispatch)))
+         `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
      :cljs
      (list 'clojure.core/multi-fn-add-method-impl multifn dispatch-val (list* 'fn fn-tail))))
