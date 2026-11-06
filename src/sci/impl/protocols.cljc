@@ -440,7 +440,10 @@
   "Returns true if atype extends protocol"
   [protocol atype]
   #?(:cljd (boolean (some #(when (instance? mms/SciMultiFn %)
-                             (mms/get-method-impl % atype))
+                             (when-let [m (mms/get-method-impl % atype)]
+                               (not (identical? m (get (mms/methods-impl %) :default)))))
                           (:methods protocol)))
-     :clj (boolean (some #(mms/get-method-impl % atype) (:methods protocol)))
-     :cljs (boolean (some #(get-method % atype) (:methods protocol)))))
+     :default
+     (boolean (some #(when-let [m (#?(:clj mms/get-method-impl :cljs get-method) % atype)]
+                       (not (identical? m (get (methods %) :default))))
+                    (:methods protocol)))))
