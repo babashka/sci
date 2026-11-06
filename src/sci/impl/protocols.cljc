@@ -142,9 +142,21 @@
                    :impl `(fn ~@bodies)}])))
         meths))
 
+#?(:cljd nil
+   :clj
+   (defn- not-extendable-message
+     "Returns an error message if proto stands for a Java interface, or nil if proto is a protocol."
+     [proto]
+     (let [c (or (:class proto) (:protocol proto))]
+       (when (class? c)
+         (str c " is not a protocol")))))
+
 ;; TODO: apply patches for default override for records
 (defn extend [atype & proto+mmaps]
   (doseq [[proto mmap] (partition 2 proto+mmaps)]
+    #?(:cljd nil
+       :clj (when-let [msg (not-extendable-message proto)]
+              (throw (IllegalArgumentException. ^String msg))))
     (if (native-protocol? proto)
       ;; native CLJS protocol: install on the sci type's JS prototype, at
       ;; every arity the protocol declares for each given method
@@ -274,6 +286,9 @@
         protocol-data (if (utils/var? protocol-var)
                         (deref protocol-var)
                         protocol-var)
+        #?@(:cljd []
+            :clj [_ (when-let [msg (not-extendable-message protocol-data)]
+                      (utils/throw-error-with-location msg form))])
         extend-via-metadata (:extend-via-metadata protocol-data)
         native? (native-protocol? protocol-data)
         protocol-ns (:ns protocol-data)
@@ -303,7 +318,10 @@
                                      (utils/throw-error-with-location (str "Protocol not found: " proto) form))
                     proto-data (if (utils/var? protocol-var)
                                  (deref protocol-var)
-                                 protocol-var)]
+                                 protocol-var)
+                    #?@(:cljd []
+                        :clj [_ (when-let [msg (not-extendable-message proto-data)]
+                                  (utils/throw-error-with-location msg form))])]
                 (if (native-protocol? proto-data)
                   `(sci.impl.protocols/-extend-native!
                     ~atype ~proto ~(native-method-impls meths))

@@ -153,3 +153,20 @@
 (let [a (= \"t\" (str (T.)))]
   (remove-method sci.impl.deftype/toString T)
   [a (= \"t\" (str (T.)))])" {})))))))
+
+#?(:cljd nil
+   :clj
+   (deftest extend-interface-test
+     (when-not tu/native?
+       (doseq [[iface meth] [["clojure.lang/IDeref" "(deref [_] 1)"]
+                             ["clojure.lang/IAtom" "(reset [_ v] v)"]
+                             ["clojure.lang/IAtom2" "(resetVals [_ v] v)"]
+                             ["clojure.lang/IFn" "(invoke [_] 1)"]]]
+         (test/testing (str "extend-type on " iface " throws")
+           (is (thrown-with-msg? Exception #"is not a protocol"
+                                 (eval* (str "(defrecord R []) (extend-type R " iface " " meth ")"))))))
+       (test/testing "extend on clojure.lang/IDeref throws"
+         (is (thrown-with-msg? Exception #"interface clojure.lang.IDeref is not a protocol"
+                               (eval* "(defrecord R []) (extend R clojure.lang/IDeref {:deref (fn [_] 1)})"))))
+       (test/testing "deftype with IDeref, IFn and IAtom returns [1 2 3]"
+         (is (= [1 2 3] (eval* "(deftype T [] clojure.lang.IDeref (deref [_] 1) clojure.lang.IFn (invoke [_] 2) clojure.lang.IAtom (reset [_ v] v)) [@(T.) ((T.)) (reset! (T.) 3)]")))))))
