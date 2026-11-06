@@ -976,6 +976,22 @@
    #?@(:cljs ['-install-native-protocol! sci.impl.deftype/-install-native-protocol!])
    'type types/type-impl})
 
+#?(:clj
+   (mm/register-internal-multi-fns!
+    {core-protocols/deref 'clojure.lang/deref
+     core-protocols/swap 'clojure.lang/swap
+     core-protocols/reset 'clojure.lang/reset
+     core-protocols/compareAndSet 'clojure.lang/compareAndSet
+     core-protocols/swapVals 'clojure.lang/swapVals
+     core-protocols/resetVals 'clojure.lang/resetVals
+     core-protocols/inst-ms* 'clojure.core/inst-ms*
+     types/sci-invoke 'clojure.lang/invoke
+     types/sci-apply-to 'clojure.lang/applyTo
+     sci.impl.deftype/to-string 'sci.impl.deftype/toString
+     sci.impl.deftype/equals 'sci.impl.deftype/equals
+     sci.impl.deftype/hashCode 'sci.impl.deftype/hashCode
+     sci.impl.records/to-string 'sci.impl.records/toString}))
+
 (def sci-impl-protocols
   {:obj (sci.lang/->Namespace 'sci.impl.protocols nil)
    :private true
@@ -1472,6 +1488,7 @@
          :clj ['get-method (copy-var sci.impl.multimethods/get-method-impl clojure-core-ns {:copy-meta-from 'clojure.core/get-method})]
          :default ['get-method (copy-core-var get-method)])
      #?@(:cljd ['methods (new-var 'methods sci.impl.multimethods/methods-impl clojure-core-ns)]
+         :clj ['methods (copy-var sci.impl.multimethods/methods-impl clojure-core-ns {:copy-meta-from 'clojure.core/methods})]
          :default ['methods (copy-core-var methods)])
      'multi-fn-add-method-impl (copy-var sci.impl.multimethods/multi-fn-add-method-impl clojure-core-ns)
      'multi-fn?-impl (copy-var sci.impl.multimethods/multi-fn?-impl clojure-core-ns)
@@ -1479,11 +1496,15 @@
      #?@(:cljd []
          :clj ['prefer-method (copy-var sci.impl.multimethods/prefer-method-impl clojure-core-ns {:copy-meta-from 'clojure.core/prefer-method})]
          :default ['prefer-method (copy-core-var prefer-method)])
-     #?@(:cljd [] :default ['prefers (copy-core-var prefers)])
+     #?@(:cljd []
+         :clj ['prefers (copy-var sci.impl.multimethods/prefers-impl clojure-core-ns {:copy-meta-from 'clojure.core/prefers})]
+         :default ['prefers (copy-core-var prefers)])
      #?@(:cljd ['remove-method (new-var 'remove-method sci.impl.multimethods/remove-method-impl clojure-core-ns)]
          :clj ['remove-method (copy-var sci.impl.multimethods/remove-method-impl clojure-core-ns {:copy-meta-from 'clojure.core/remove-method})]
          :default ['remove-method (copy-core-var remove-method)])
-     #?@(:cljd [] :default ['remove-all-methods (copy-core-var remove-all-methods)])
+     #?@(:cljd []
+         :clj ['remove-all-methods (copy-var sci.impl.multimethods/remove-all-methods-impl clojure-core-ns {:copy-meta-from 'clojure.core/remove-all-methods})]
+         :default ['remove-all-methods (copy-core-var remove-all-methods)])
      ;; end multimethods
      ;; protocols
      'defprotocol (macrofy 'defprotocol sci.impl.protocols/defprotocol
