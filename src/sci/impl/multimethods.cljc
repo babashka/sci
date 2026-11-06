@@ -206,7 +206,12 @@
      (let [multifn-str (str multifn)
            f (if (or (str/ends-with? multifn-str "print-method")
                      (str/ends-with? multifn-str "print-dup"))
-               `(clojure.core/print-fn-with-host-vars (fn ~@fn-tail))
+               `(let [f# (fn ~@fn-tail)
+                      mf# (resolve '~multifn)]
+                  (if (or (= (resolve 'clojure.core/print-method) mf#)
+                          (= (resolve 'clojure.core/print-dup) mf#))
+                    (clojure.core/print-fn-with-host-vars f#)
+                    f#))
                `(fn ~@fn-tail))]
        (if (or (str/ends-with? multifn-str "print-method")
                (str/ends-with? multifn-str "simple-dispatch"))

@@ -126,10 +126,17 @@
    :clj
    (deftest print-method-print-vars-test
      (when-not tu/native?
-       (let [eval-pm #(tu/eval* % {:namespaces {'clojure.core {'print-method (sio/print-multi-fn "print-method" print-method)}}
+       (let [eval-pm #(tu/eval* % {:namespaces {'clojure.core {'print-method (sio/print-multi-fn "print-method" print-method)
+                                                   'print-dup (sio/print-multi-fn "print-dup" print-dup)}}
                                    :classes {'java.util.concurrent.atomic.AtomicLong java.util.concurrent.atomic.AtomicLong}})]
          (testing "print-method uses *print-length* 3 from binding"
            (is (= "(0 1 2 ...)" (eval-pm "(binding [*print-length* 3] (with-out-str (print-method (range 10) *out*)))"))))
+         (testing "print-dup prints ^{:a 1} [1] with *print-meta* true from binding"
+           (is (= "^{:a 1} [1]" (eval-pm "(binding [*print-meta* true] (with-out-str (print-dup (with-meta [1] {:a 1}) *out*)))"))))
+         (testing "a 1-arg method on a multimethod named my-print-method returns :a"
+           (is (= :a (eval-pm "(defmulti my-print-method identity) (defmethod my-print-method :a [x] x) (my-print-method :a)"))))
+         (testing "a 1-arg method on a user multimethod named print-dup returns :a"
+           (is (= :a (eval-pm "(ns foo (:refer-clojure :exclude [print-dup])) (defmulti print-dup identity) (defmethod print-dup :a [x] x) (print-dup :a)"))))
          (testing "print-method in a record method prints # below depth 2 with *print-level* 2"
            (is (= "[[#box #]]" (eval-pm "(defrecord Box [v]) (defmethod print-method Box [x w] (.write w \"#box \") (print-method (:v x) w)) (binding [*print-level* 2] (pr-str [[(->Box [[1]])]]))"))))
          (testing "a record method binds *print-length* 1 for its field"

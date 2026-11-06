@@ -114,6 +114,7 @@
      "Returns a MultiFn that delegates to host-fn and binds Clojure's print
   vars to the values of SCI's for each call."
      [fn-name ^clojure.lang.MultiFn host-fn]
+     ;; every method table access is overridden, the superclass's own table stays empty
      (proxy [clojure.lang.MultiFn] [fn-name
                                     (.-dispatchFn host-fn)
                                     (.-defaultDispatchVal host-fn)
