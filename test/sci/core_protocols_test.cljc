@@ -34,7 +34,8 @@
                      :cljs "(defrecord Foo [x] IDeref (-deref [this] x))
                             @(->Foo :value)"))))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest blocking-deref-test
      (testing "defrecord implements IDeref and IBlockingDeref"
        (is (= [:value [10 :timeout] true]
