@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- `deftype`, `defrecord` and `reify` accept `clojure.lang.IBlockingDeref`
 - `deftype` and `defrecord` methods for built-in interfaces such as `IDeref`, `IFn` and `Object` no longer stay in memory after their context is gone
 - `extend-type`, `extend-protocol` and `extend` on `clojure.lang/IDeref`, `IAtom`, `IAtom2` and `IFn` throw `is not a protocol` on the JVM
 - `extend-type` of a record to `Inst` no longer makes a record with the same name in another context satisfy `Inst`

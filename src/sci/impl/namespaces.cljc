@@ -894,6 +894,7 @@
       ;; IDeref as protocol instead of class
       'IDeref core-protocols/deref-protocol
       'deref core-protocols/deref
+      'IBlockingDeref core-protocols/blocking-deref-protocol
       ;; IAtom as protocol instead of class
       'IAtom core-protocols/swap-protocol
       'swap core-protocols/swap
