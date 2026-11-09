@@ -21,30 +21,44 @@
             (str "defrecord/deftype currently only support protocol implementations, found: " protocol-name))
         expr))))
 
+(defn ^:private shared-method-name?
+  "Returns true if a method name occurs under more than one protocol in protocol-impls."
+  [protocol-impls]
+  (loop [seen #{}
+         groups (seq protocol-impls)]
+    (if groups
+      (let [names (into #{} (map first) (rest (first groups)))]
+        (if (some seen names)
+          true
+          (recur (into seen names) (next groups))))
+      false)))
+
 (defn ^:private merge-shared-methods
   "Returns protocol-impls with each method impl moved to the first protocol in the same namespace with a method of that name."
   [ctx protocol-impls]
-  (let [protocol-ns (fn [protocol-name]
-                      (let [p (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
-                            p (if (utils/var? p) @p p)]
-                        (when (and (map? p) (not (:marker-setter p)))
-                          (:ns p))))]
-    (:groups
-     (reduce (fn [{:keys [groups owner]} [protocol-name & impls]]
-               (let [pns (protocol-ns protocol-name)
-                     idx (count groups)]
-                 (reduce (fn [acc impl]
-                           (let [k [pns (first impl)]
-                                 target (when pns (get (:owner acc) k))]
-                             (if target
-                               (update-in acc [:groups target] conj impl)
-                               (cond-> (update-in acc [:groups idx] conj impl)
-                                 pns (assoc-in [:owner k] idx)))))
-                         {:groups (conj groups [protocol-name])
-                          :owner owner}
-                         impls)))
-             {:groups [] :owner {}}
-             protocol-impls))))
+  (if-not (shared-method-name? protocol-impls)
+    protocol-impls
+    (let [protocol-ns (fn [protocol-name]
+                        (let [p (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
+                              p (if (utils/var? p) @p p)]
+                          (when (and (map? p) (not (:marker-setter p)))
+                            (:ns p))))]
+      (:groups
+       (reduce (fn [{:keys [groups owner]} [protocol-name & impls]]
+                 (let [pns (protocol-ns protocol-name)
+                       idx (count groups)]
+                   (reduce (fn [acc impl]
+                             (let [k [pns (first impl)]
+                                   target (when pns (get (:owner acc) k))]
+                               (if target
+                                 (update-in acc [:groups target] conj impl)
+                                 (cond-> (update-in acc [:groups idx] conj impl)
+                                   pns (assoc-in [:owner k] idx)))))
+                           {:groups (conj groups [protocol-name])
+                            :owner owner}
+                           impls)))
+               {:groups [] :owner {}}
+               protocol-impls)))))
 
 (defn hex-hash [this]
   #?(:cljd (.toRadixString (hash this) 16)
