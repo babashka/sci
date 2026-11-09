@@ -34,6 +34,31 @@
                      :cljs "(defrecord Foo [x] IDeref (-deref [this] x))
                             @(->Foo :value)"))))))
 
+#?(:cljd nil
+   :clj
+   (deftest blocking-deref-test
+     (testing "defrecord implements IDeref and IBlockingDeref"
+       (is (= [:value [10 :timeout] true]
+              (eval* "(defrecord Foo [x]
+                        clojure.lang.IDeref (deref [_] x)
+                        clojure.lang.IBlockingDeref (deref [_ ms v] [ms v]))
+                      [@(->Foo :value) (deref (->Foo :value) 10 :timeout)
+                       (instance? clojure.lang.IBlockingDeref (->Foo :value))]"))))
+     (testing "deftype implements IBlockingDeref before IDeref"
+       (is (= [:value [10 :timeout]]
+              (eval* "(deftype Foo [x]
+                        clojure.lang.IBlockingDeref (deref [_ ms v] [ms v])
+                        clojure.lang.IDeref (deref [_] x))
+                      [@(Foo. :value) (deref (Foo. :value) 10 :timeout)]"))))
+     (testing "reify implements IDeref and IBlockingDeref"
+       (is (= [:value [10 :timeout]]
+              (eval* "(def r (reify
+                               clojure.lang.IDeref (deref [_] :value)
+                               clojure.lang.IBlockingDeref (deref [_ ms v] [ms v])))
+                      [@r (deref r 10 :timeout)]"))))
+     (testing "deref with timeout on a promise returns :timeout"
+       (is (= :timeout (eval* "(deref (promise) 1 :timeout)"))))))
+
 (deftest swap-test
   (testing "fully qualified"
     (is (= 2 (eval* #?(:cljd "(def x (reify cljd.core/ISwap (-swap! [_ f] (f 1)))) (swap! x inc)"

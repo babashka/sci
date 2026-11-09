@@ -27,12 +27,19 @@
    :clj
    (do (defmulti deref types/type-method-dispatch)
 
-       (defmethod deref :sci.impl.protocols/reified [ref]
-         (let [methods (types/getMethods ref)]
-           ((get methods 'deref) ref)))
+       (defmethod deref :sci.impl.protocols/reified
+         ([ref]
+          (let [methods (types/getMethods ref)]
+            ((get methods 'deref) ref)))
+         ([ref timeout-ms timeout-val]
+          (let [methods (types/getMethods ref)]
+            ((get methods 'deref) ref timeout-ms timeout-val))))
 
-       (defmethod deref :default [ref]
-         (clojure.core/deref ref)))
+       (defmethod deref :default
+         ([ref]
+          (clojure.core/deref ref))
+         ([ref timeout-ms timeout-val]
+          (clojure.core/deref ref timeout-ms timeout-val))))
    ;; on CLJS sci types implement IDeref natively (per-type/per-instance
    ;; protocol slots), so plain cljs.core/deref dispatches into sci impls
    :cljs nil)
@@ -51,8 +58,12 @@
             (instance? sci.impl.types.SciTypeInstance x)
             (types/type-call deref :clojure.lang/deref (types/-get-type x) x)
             :else (deref x)))
-     ([x & args]
-      (apply clojure.core/deref x args))))
+     ([x timeout-ms timeout-val]
+      (cond (instance? clojure.lang.IBlockingDeref x)
+            (clojure.core/deref x timeout-ms timeout-val)
+            (instance? sci.impl.types.SciTypeInstance x)
+            (types/type-call deref :clojure.lang/deref (types/-get-type x) x timeout-ms timeout-val)
+            :else (deref x timeout-ms timeout-val)))))
 
 #?(:cljd
    (def cljd-core-ns (lang/->Namespace 'cljd.core nil)))
@@ -81,6 +92,15 @@
       'cljs.core.IDeref
       (copy-vars/protocol-entry IDeref cljs-core-ns)
       {:ns cljs-core-ns})))
+
+#?(:clj
+   (def blocking-deref-protocol
+     (utils/new-var
+      'clojure.lang.IBlockingDeref
+      {:class clojure.lang.IBlockingDeref
+       :methods #{deref}
+       :ns clj-lang-ns}
+      {:ns clj-lang-ns})))
 
 ;;;; end IDeref
 
