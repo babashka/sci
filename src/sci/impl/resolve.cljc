@@ -5,8 +5,7 @@
             [sci.impl.interop :as interop]
             [sci.impl.records :as records]
             [sci.impl.types :as t :refer [->Node]]
-            [sci.impl.utils :as utils :refer [strip-core-ns
-                                              ana-macros]]))
+            [sci.impl.utils :as utils :refer [ana-macros]]))
 
 (defn throw-error-with-location [msg node]
   (utils/throw-error-with-location msg node {:phase "analysis"}))
@@ -23,18 +22,8 @@
 (defn check-permission! [ctx sym kv]
   (or (identical? utils/allowed-loop sym)
       (identical? utils/allowed-recur sym)
-      (let [check-sym (strip-core-ns sym)
-            allow (:allow ctx)]
-        (when-not (if allow
-                    (let [[_ v] kv]
-                      (or (and (utils/var? v) (not (:sci/built-in (meta v))))
-                          (contains? allow check-sym)))
-                      true)
-          (throw-error-with-location (str sym " is not allowed!") sym))
-        (let [deny (:deny ctx)]
-          (when (if deny (contains? deny check-sym)
-                    false)
-            (throw-error-with-location (str sym " is not allowed!") sym))))))
+      (when-not (utils/permitted? ctx sym (second kv))
+        (throw-error-with-location (str sym " is not allowed!") sym))))
 
 (defn lookup*
   ([ctx sym call?] (lookup* ctx sym call? false))

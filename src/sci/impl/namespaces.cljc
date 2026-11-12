@@ -528,11 +528,22 @@
 (defn clean-ns [m]
   (dissoc m :aliases :imports :obj :refer :refers :types))
 
+(defn- remove-unpermitted
+  "Returns ns map m without the entries :allow or :deny in ctx forbid."
+  [ctx m]
+  (if (:check-permissions ctx)
+    (into {} (filter (fn [[k v]]
+                       (and (utils/permitted? ctx k v)
+                            (or (not (utils/var? v))
+                                (utils/permitted? ctx (parser/var->sym v) v)))))
+          m)
+    m))
+
 (defn sci-ns-interns* [ctx sci-ns]
   (let [name (sci-ns-name* ctx sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
         m (clean-ns m)]
-    m))
+    (remove-unpermitted ctx m)))
 
 (defn sci-ns-interns [sci-ns]
   (let [ctx (store/get-ctx)]
@@ -542,10 +553,10 @@
   (let [name (sci-ns-name* ctx sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
         m (clean-ns m)]
-    (into {} (keep (fn [[k v]]
-                     (when-not (:private (meta v))
-                       [k v]))
-                   m))))
+    (remove-unpermitted ctx (into {} (keep (fn [[k v]]
+                                             (when-not (:private (meta v))
+                                               [k v]))
+                                           m)))))
 
 (defn sci-ns-publics [sci-ns]
   (let [ctx (store/get-ctx)]
@@ -585,7 +596,7 @@
   (let [name (sci-ns-name* ctx sci-ns)
         env @(:env ctx)
         refers (get-in env [:namespaces name :refers])]
-    (merge (core-refers (get-in env [:namespaces 'clojure.core])) refers)))
+    (remove-unpermitted ctx (merge (core-refers (get-in env [:namespaces 'clojure.core])) refers))))
 
 (defn sci-ns-refers [sci-ns]
   (let [ctx (store/get-ctx)]
@@ -754,7 +765,11 @@
     (let [nsname (-> sym namespace symbol)
           sym' (-> sym name symbol)]
       (if-let [namespace (-> (store/get-ctx) :env deref :namespaces (get nsname))]
-        (get namespace sym')
+        (let [ctx (store/get-ctx)
+              v (get namespace sym')]
+          (when (or (not (:check-permissions ctx))
+                    (utils/permitted? ctx sym v))
+            v))
         (throw (new #?(:cljd ArgumentError
                        :clj IllegalArgumentException
                        :cljs js/Error)

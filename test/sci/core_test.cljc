@@ -535,6 +535,20 @@
   (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
                         #"allowed"
                         (tu/eval* "(clojure.core/inc 1)" {:deny '[clojure.core/inc]})))
+  (testing "ns-publics, ns-interns, ns-refers, ns-map and find-var omit a var in :deny"
+    (is (= [false false false false nil true]
+           (tu/eval* "[(contains? (ns-publics 'clojure.core) 'inc)
+                       (contains? (ns-interns 'clojure.core) 'inc)
+                       (contains? (ns-refers *ns*) 'inc)
+                       (contains? (ns-map *ns*) 'inc)
+                       (find-var 'clojure.core/inc)
+                       (contains? (ns-publics 'clojure.core) 'dec)]"
+                     {:deny '[inc]}))))
+  (testing "ns-publics omits a built-in var missing from :allow"
+    (is (= [false true]
+           (tu/eval* "[(contains? (ns-publics 'clojure.core) 'inc)
+                       (contains? (ns-publics 'clojure.core) 'ns-publics)]"
+                     {:allow '[contains? ns-publics quote]}))))
 
   (testing "for/doseq are macroexpanded properly"
     (is (= 'loop* (first (tu/eval* "(macroexpand '(doseq [i [1 2 3]] nil))" {}))))
