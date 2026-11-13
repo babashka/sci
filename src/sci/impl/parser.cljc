@@ -8,7 +8,8 @@
    [edamame.core :as edamame]
    [edamame.impl.parser :as edamame-impl]
    [sci.impl.interop :as interop]
-   [sci.impl.utils :as utils]))
+   [sci.impl.utils :as utils]
+   [sci.impl.vars :as vars]))
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
 
@@ -64,9 +65,9 @@
           (let [sym-name-str (name sym)]
             (or (when-let [refers (:refers the-current-ns)]
                   (when-let [v (get refers sym)]
-                    (utils/var->sym v)))
+                    (when (utils/var? v) (vars/toSymbol v))))
                 (when-let [v (get the-current-ns sym)]
-                  (utils/var->sym v))
+                  (when (utils/var? v) (vars/toSymbol v)))
                 (when-let [types (:types the-current-ns)]
                   (when-let [v (get types sym)]
                     (symbol (str v))))
