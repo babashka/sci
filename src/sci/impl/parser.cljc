@@ -8,7 +8,6 @@
    [edamame.core :as edamame]
    [edamame.impl.parser :as edamame-impl]
    [sci.impl.interop :as interop]
-   [sci.impl.types :as types]
    [sci.impl.utils :as utils]))
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
@@ -51,13 +50,6 @@
     :location? seq?
     :end-location false}))
 
-(defn var->sym [v]
-  (when-let [m (meta v)]
-    (when-let [var-name (:name m)]
-      (when-let [ns (:ns m)]
-        (symbol (str (types/getName ns))
-                (str var-name))))))
-
 (defn fully-qualify [ctx sym]
   (let [env @(:env ctx)
         sym-ns (when-let [n (namespace sym)]
@@ -72,9 +64,9 @@
           (let [sym-name-str (name sym)]
             (or (when-let [refers (:refers the-current-ns)]
                   (when-let [v (get refers sym)]
-                    (var->sym v)))
+                    (utils/var->sym v)))
                 (when-let [v (get the-current-ns sym)]
-                  (var->sym v))
+                  (utils/var->sym v))
                 (when-let [types (:types the-current-ns)]
                   (when-let [v (get types sym)]
                     (symbol (str v))))

@@ -528,15 +528,19 @@
 (defn clean-ns [m]
   (dissoc m :aliases :imports :obj :refer :refers :types))
 
-(defn- permitted-xf [ctx]
-  (filter (fn [[k v]] (utils/permitted? ctx k v))))
+(defn- permitted-xf
+  "Returns a transducer that keeps the ns map entries :allow and :deny in ctx permit.
+  ns-name qualifies each key, or nil for keys written unqualified."
+  [ctx ns-name]
+  (filter (fn [[k v]]
+            (utils/permitted? ctx (if ns-name (symbol (str ns-name) (str k)) k) v))))
 
 (defn sci-ns-interns* [ctx sci-ns]
   (let [name (sci-ns-name* ctx sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
         m (clean-ns m)]
     (cond->> m
-      (:check-permissions ctx) (into {} (permitted-xf ctx)))))
+      (:check-permissions ctx) (into {} (permitted-xf ctx name)))))
 
 (defn sci-ns-interns [sci-ns]
   (let [ctx (store/get-ctx)]
@@ -547,7 +551,7 @@
         m (get-in @(:env ctx) [:namespaces name])
         m (clean-ns m)]
     (into {} (cond-> (remove (fn [[_ v]] (:private (meta v))))
-               (:check-permissions ctx) (comp (permitted-xf ctx)))
+               (:check-permissions ctx) (comp (permitted-xf ctx name)))
           m)))
 
 (defn sci-ns-publics [sci-ns]
@@ -589,7 +593,7 @@
         env @(:env ctx)
         refers (get-in env [:namespaces name :refers])]
     (cond->> (merge (core-refers (get-in env [:namespaces 'clojure.core])) refers)
-      (:check-permissions ctx) (into {} (permitted-xf ctx)))))
+      (:check-permissions ctx) (into {} (permitted-xf ctx nil)))))
 
 (defn sci-ns-refers [sci-ns]
   (let [ctx (store/get-ctx)]

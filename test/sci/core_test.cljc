@@ -552,6 +552,11 @@
         (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
                               #"allowed"
                               (tu/eval* expr {:deny '[inc]}))))))
+  (testing "ns-publics and ns-interns list foo/x under :deny [x]"
+    (is (= [true true 1]
+           (tu/eval* "(do (ns foo) (def x 1) (ns user)
+                          [(contains? (ns-publics 'foo) 'x) (contains? (ns-interns 'foo) 'x) foo/x])"
+                     {:deny '[x]}))))
   (testing ":allow accepts a listed symbol with an alias"
     (is (= "a,b" (tu/eval* "(do (require '[clojure.string :as str]) (str/join \",\" [\"a\" \"b\"]))"
                            {:allow '[do require quote str/join]}))))

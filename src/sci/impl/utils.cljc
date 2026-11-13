@@ -376,11 +376,12 @@
 (defn var? [x]
   (instance? #?(:cljd lang/Var :clj sci.lang.Var :cljs sci.lang.Var) x))
 
-(defn- var-symbol [v]
-  (let [m (meta v)]
-    (when-let [n (:name m)]
+(defn var->sym [v]
+  (when-let [m (meta v)]
+    (when-let [var-name (:name m)]
       (when-let [the-ns (:ns m)]
-        (symbol (str (t/getName the-ns)) (str n))))))
+        (symbol (str (t/getName the-ns))
+                (str var-name))))))
 
 (defn permitted?
   "Returns true if the :allow and :deny options in ctx permit sym.
@@ -396,7 +397,7 @@
          (or (not deny)
              (and (not (contains? deny check-sym))
                   (not (when (var? v)
-                         (when-let [var-sym (var-symbol v)]
+                         (when-let [var-sym (var->sym v)]
                            (contains? deny (strip-core-ns var-sym))))))))))
 
 (defn namespace? [x]
