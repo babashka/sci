@@ -528,11 +528,19 @@
 (defn clean-ns [m]
   (dissoc m :aliases :imports :obj :refer :refers :types))
 
+(defn- permitted-xf
+  "Returns a transducer that keeps the ns map entries :allow and :deny in ctx permit.
+  ns-name qualifies each key, or nil for keys written unqualified."
+  [ctx ns-name]
+  (filter (fn [[k v]]
+            (utils/permitted? ctx (if ns-name (symbol (str ns-name) (str k)) k) v))))
+
 (defn sci-ns-interns* [ctx sci-ns]
   (let [name (sci-ns-name* ctx sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
         m (clean-ns m)]
-    m))
+    (cond->> m
+      (:check-permissions ctx) (into {} (permitted-xf ctx name)))))
 
 (defn sci-ns-interns [sci-ns]
   (let [ctx (store/get-ctx)]
@@ -542,10 +550,9 @@
   (let [name (sci-ns-name* ctx sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
         m (clean-ns m)]
-    (into {} (keep (fn [[k v]]
-                     (when-not (:private (meta v))
-                       [k v]))
-                   m))))
+    (into {} (cond-> (remove (fn [[_ v]] (:private (meta v))))
+               (:check-permissions ctx) (comp (permitted-xf ctx name)))
+          m)))
 
 (defn sci-ns-publics [sci-ns]
   (let [ctx (store/get-ctx)]
@@ -585,7 +592,8 @@
   (let [name (sci-ns-name* ctx sci-ns)
         env @(:env ctx)
         refers (get-in env [:namespaces name :refers])]
-    (merge (core-refers (get-in env [:namespaces 'clojure.core])) refers)))
+    (cond->> (merge (core-refers (get-in env [:namespaces 'clojure.core])) refers)
+      (:check-permissions ctx) (into {} (permitted-xf ctx nil)))))
 
 (defn sci-ns-refers [sci-ns]
   (let [ctx (store/get-ctx)]
@@ -647,6 +655,12 @@
     (swap! env update :namespaces dissoc sym)
     nil))
 
+(defn- check-intern-permission [ctx ns-name var-sym v]
+  (when (and v
+             (:check-permissions ctx)
+             (not (utils/permitted? ctx (symbol (str ns-name) (str var-sym)) v)))
+    (throw (ex-info (str var-sym " is not allowed!") {:type :sci/error}))))
+
 (defn sci-intern
   ;; in this case the var will become unbound
   ([ns var-sym]
@@ -654,7 +668,9 @@
          ns (sci-the-ns* ctx ns)
          ns-name (types/getName ns)
          env (:env ctx)]
-     (or (get-in @env [:namespaces ns-name var-sym])
+     (or (when-let [v (get-in @env [:namespaces ns-name var-sym])]
+           (check-intern-permission ctx ns-name var-sym v)
+           v)
          (let [new-var (sci.impl.utils/new-var var-sym nil (assoc (meta var-sym) :ns ns))]
            (sci.impl.vars/unbind new-var)
            (swap! env assoc-in [:namespaces ns-name var-sym] new-var)
@@ -665,6 +681,7 @@
          ns-name (types/getName ns)
          env (:env ctx)]
      (or (when-let [v (get-in @env [:namespaces ns-name var-sym])]
+           (check-intern-permission ctx ns-name var-sym v)
            (sci.impl.vars/bindRoot v val)
            v)
          (let [new-var (sci.impl.utils/new-var var-sym val (assoc (meta var-sym) :ns ns))]
@@ -751,10 +768,14 @@
 
 (defn sci-find-var [sym]
   (if (qualified-symbol? sym)
-    (let [nsname (-> sym namespace symbol)
+    (let [ctx (store/get-ctx)
+          nsname (-> sym namespace symbol)
           sym' (-> sym name symbol)]
-      (if-let [namespace (-> (store/get-ctx) :env deref :namespaces (get nsname))]
-        (get namespace sym')
+      (if-let [namespace (-> ctx :env deref :namespaces (get nsname))]
+        (let [v (get namespace sym')]
+          (when (or (not (:check-permissions ctx))
+                    (utils/permitted? ctx sym v))
+            v))
         (throw (new #?(:cljd ArgumentError
                        :clj IllegalArgumentException
                        :cljs js/Error)
