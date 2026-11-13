@@ -543,7 +543,18 @@
                        (contains? (ns-map *ns*) 'inc)
                        (find-var 'clojure.core/inc)
                        (contains? (ns-publics 'clojure.core) 'dec)]"
-                     {:deny '[inc]}))))
+                     {:deny '[inc]})))
+    (doseq [expr ["(do (alias 'c 'clojure.core) (c/inc 1))"
+                  "(do (require '[clojure.core :as c]) (c/inc 1))"
+                  "(do (refer 'clojure.core :rename '{inc plus}) (plus 1))"
+                  "(@(intern 'clojure.core 'inc) 1)"]]
+      (testing expr
+        (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+                              #"allowed"
+                              (tu/eval* expr {:deny '[inc]}))))))
+  (testing ":allow accepts a listed symbol with an alias"
+    (is (= "a,b" (tu/eval* "(do (require '[clojure.string :as str]) (str/join \",\" [\"a\" \"b\"]))"
+                           {:allow '[do require quote str/join]}))))
   (testing "ns-publics omits a built-in var missing from :allow"
     (is (= [false true]
            (tu/eval* "[(contains? (ns-publics 'clojure.core) 'inc)
