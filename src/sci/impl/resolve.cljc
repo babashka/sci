@@ -137,16 +137,15 @@
         (when-not only-var?
           (when-let [types (:types the-current-ns)]
             (find types sym-name)))
-        (let [kv (some-> env :namespaces (get 'clojure.core) (find sym-name))]
-          ;; only valid when the symbol isn't excluded
-          (when-not (some-> the-current-ns
-                            :refer
-                            (get 'clojure.core)
-                            :exclude
-                            (contains? sym-name))
-            kv))
-        (when (when call? (get ana-macros sym))
-          [sym sym])
+        ;; only valid when the symbol isn't excluded
+        (when-not (some-> the-current-ns
+                          :refer
+                          (get 'clojure.core)
+                          :exclude
+                          (contains? sym-name))
+          (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
+              (when (when call? (get ana-macros sym))
+                [sym sym])))
         (when-not only-var?
           (or
            (when-let [c (interop/resolve-class ctx sym)]
