@@ -591,8 +591,11 @@
 (defn sci-ns-refers* [ctx sci-ns]
   (let [name (sci-ns-name* ctx sci-ns)
         env @(:env ctx)
-        refers (get-in env [:namespaces name :refers])]
-    (cond->> (merge (core-refers (get-in env [:namespaces 'clojure.core])) refers)
+        the-ns-map (get-in env [:namespaces name])
+        refers (:refers the-ns-map)
+        excluded (get-in the-ns-map [:refer 'clojure.core :exclude])
+        core (core-refers (get-in env [:namespaces 'clojure.core]))]
+    (cond->> (merge (if (seq excluded) (apply dissoc core excluded) core) refers)
       (:check-permissions ctx) (into {} (permitted-xf ctx nil)))))
 
 (defn sci-ns-refers [sci-ns]
@@ -627,6 +630,9 @@
                                       (dissoc the-ns-map sym))
                                   (contains? the-ns-map sym)
                                   (dissoc the-ns-map sym)
+                                  (and (not= 'clojure.core name)
+                                       (contains? (core-refers (get-in env [:namespaces 'clojure.core])) sym))
+                                  (update-in the-ns-map [:refer 'clojure.core :exclude] (fnil conj #{}) sym)
                                   (or
                                    (contains? (:imports env) sym)
                                    (contains? (:imports the-ns-map) sym))

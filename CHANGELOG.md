@@ -12,6 +12,8 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Fix [#1135](https://github.com/babashka/sci/issues/1135): `ns-unmap` of a default `clojure.core` refer stops it from resolving
+- Fix [#1136](https://github.com/babashka/sci/issues/1136): `ns-refers` and `ns-map` leave out vars excluded by `:refer-clojure`
 - `deftype`, `defrecord` and `reify` accept `clojure.lang.IBlockingDeref`
 - `deftype` and `defrecord` methods for built-in interfaces such as `IDeref`, `IFn` and `Object` no longer stay in memory after their context is gone
 - `extend-type`, `extend-protocol` and `extend` on `clojure.lang/IDeref`, `IAtom`, `IAtom2` and `IFn` throw `is not a protocol` on the JVM

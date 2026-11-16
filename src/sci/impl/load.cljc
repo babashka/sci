@@ -383,8 +383,9 @@
                            other-ns (get-in env [:namespaces ns-sym])
                            other-vars (select-keys other-ns v)]
                        ;; TODO: this is wrong, don't merge these vars into the current namespace
-                       (update-in env [:namespaces cnn]
-                                  merge other-vars))))
+                       (-> env
+                           (update-in [:namespaces cnn] merge other-vars)
+                           (update-in [:namespaces cnn :refer ns-sym :exclude] (fnil #(apply disj % v) #{}))))))
             :rename
             (swap! (:env ctx)
                    (fn [env]
