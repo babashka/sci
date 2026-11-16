@@ -366,6 +366,14 @@
 
 (defn eval-refer-clojure [ctx exprs]
   (let [ns-sym 'clojure.core]
+    (when-not (some #{:only} (take-nth 2 exprs))
+      ;; refers all of clojure.core again, except names mapped to an import
+      (swap! (:env ctx)
+             (fn [env]
+               (let [cnn (utils/current-ns-name)
+                     imports (get-in env [:namespaces cnn :imports])]
+                 (update-in env [:namespaces cnn :refer ns-sym :exclude]
+                            #(into #{} (filter (fn [sym] (get imports sym))) %))))))
     (loop [exprs exprs]
       (when exprs
         (let [[k v] exprs]
@@ -383,8 +391,9 @@
                            other-ns (get-in env [:namespaces ns-sym])
                            other-vars (select-keys other-ns v)]
                        ;; TODO: this is wrong, don't merge these vars into the current namespace
-                       (update-in env [:namespaces cnn]
-                                  merge other-vars))))
+                       (-> env
+                           (update-in [:namespaces cnn] merge other-vars)
+                           (update-in [:namespaces cnn :refer ns-sym :exclude] (fnil #(apply disj % v) #{}))))))
             :rename
             (swap! (:env ctx)
                    (fn [env]

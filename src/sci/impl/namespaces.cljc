@@ -591,8 +591,11 @@
 (defn sci-ns-refers* [ctx sci-ns]
   (let [name (sci-ns-name* ctx sci-ns)
         env @(:env ctx)
-        refers (get-in env [:namespaces name :refers])]
-    (cond->> (merge (core-refers (get-in env [:namespaces 'clojure.core])) refers)
+        the-ns-map (get-in env [:namespaces name])
+        refers (:refers the-ns-map)
+        excluded (get-in the-ns-map [:refer 'clojure.core :exclude])
+        core (core-refers (get-in env [:namespaces 'clojure.core]))]
+    (cond->> (merge (if (seq excluded) (apply dissoc core excluded) core) refers)
       (:check-permissions ctx) (into {} (permitted-xf ctx nil)))))
 
 (defn sci-ns-refers [sci-ns]
@@ -620,19 +623,23 @@
              (let [name (sci-ns-name* ctx sci-ns)]
                (update-in env [:namespaces name]
                           (fn [the-ns-map]
-                            (cond (contains? (:refers the-ns-map) sym)
-                                  (-> (update the-ns-map :refers dissoc sym)
-                                      ;; remove lingering var that may have been
-                                      ;; overwritten before, see #637
-                                      (dissoc the-ns-map sym))
-                                  (contains? the-ns-map sym)
-                                  (dissoc the-ns-map sym)
-                                  (or
-                                   (contains? (:imports env) sym)
-                                   (contains? (:imports the-ns-map) sym))
-                                  ;; nil marks the imported class as unmapped
-                                  (update the-ns-map :imports assoc sym nil)
-                                  :else the-ns-map)))))))
+                            (cond-> (cond (contains? (:refers the-ns-map) sym)
+                                          (-> (update the-ns-map :refers dissoc sym)
+                                              ;; remove lingering var that may have been
+                                              ;; overwritten before, see #637
+                                              (dissoc the-ns-map sym))
+                                          (contains? the-ns-map sym)
+                                          (dissoc the-ns-map sym)
+                                          (or
+                                           (contains? (:imports env) sym)
+                                           (contains? (:imports the-ns-map) sym))
+                                          ;; nil marks the imported class as unmapped
+                                          (update the-ns-map :imports assoc sym nil)
+                                          :else the-ns-map)
+                              ;; keeps resolution from falling back to clojure.core
+                              (and (not= 'clojure.core name)
+                                   (contains? (core-refers (get-in env [:namespaces 'clojure.core])) sym))
+                              (update-in [:refer 'clojure.core :exclude] (fnil conj #{}) sym))))))))
   nil)
 
 (defn sci-ns-unalias [sci-ns sym]
