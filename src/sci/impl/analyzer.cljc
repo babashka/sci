@@ -388,6 +388,7 @@
   (let [fixed-arity (:fixed-arity fn-body)
         copy-enclosed->invocation (:copy-enclosed->invocation fn-body)
         invoc-size (:invoc-size fn-body)
+        invoc-size (when-not (zero? invoc-size) invoc-size)
         body (:body fn-body)
         vararg-idx (:vararg-idx fn-body)
         #?@(:cljs [this-as-idx (:this-as-idx fn-body)])

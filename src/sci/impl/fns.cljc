@@ -40,7 +40,7 @@
               interrupt-fn# (:interrupt-fn ~'ctx)]
           (fn ~'arity-0 ~(cond-> []
                            varargs (conj '& varargs-param))
-            (let [~'invoc-array (when-not (zero? ~'invoc-size)
+            (let [~'invoc-array (when-not (nil? ~'invoc-size)
                                   #?(:cljd (#/(List/filled dynamic) ~'invoc-size nil)
                                      :default (object-array ~'invoc-size)))]
               (when ~'enclosed->invocation
@@ -64,7 +64,7 @@
               interrupt-fn# (:interrupt-fn ~'ctx)]
           (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
                                             varargs (conj '& varargs-param))
-            (let [~'invoc-array (when-not (zero? ~'invoc-size)
+            (let [~'invoc-array (when-not (nil? ~'invoc-size)
                                   #?(:cljd (#/(List/filled dynamic) ~'invoc-size nil)
                                      :default (object-array ~'invoc-size)))]
               (when ~'enclosed->invocation
@@ -151,7 +151,7 @@
                (let [recur# recur
                      interrupt-fn# (:interrupt-fn ctx)]
                  (fn arity-many [& args]
-                   (let [invoc-array (when-not (zero? invoc-size)
+                   (let [invoc-array (when-not (nil? invoc-size)
                                        #?(:cljd (#/(List/filled dynamic) invoc-size nil)
                                           :default (object-array invoc-size)))]
                      (when enclosed->invocation
