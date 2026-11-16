@@ -1104,10 +1104,11 @@
                             (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
         sci-error (some :sci-error catches)
+        in-try (or sci-error (when (seq catches) true))
         finally (when finally
                   (analyze ctx (cons 'do (rest finally))))
         node (sci.impl.types/->Node
-              (eval/eval-try ctx bindings body catches finally sci-error)
+              (eval/eval-try ctx bindings body catches finally sci-error in-try)
               stack)]
     ;; hybrid try: body and finally compile, catch dispatch stays
     ;; eval-catches (exception path only). The interrupt-fn masking

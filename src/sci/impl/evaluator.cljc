@@ -112,21 +112,31 @@
       r
       (rethrow-with-location-of-node ctx bindings e body))))
 
-(defn- eval-in-try [ctx bindings body catches sci-error]
-  (let [in-try (or sci-error
-                   ;; try/finally without catch
-                   (seq catches)
-                   utils/*in-try*)]
-    (if (identical? in-try utils/*in-try*)
-      (types/eval body ctx bindings)
-      (binding [utils/*in-try* in-try]
-        (types/eval body ctx bindings)))))
+(defn- eval-in-try [ctx bindings body in-try]
+  #?(:cljd (if (or (nil? in-try) (= in-try utils/*in-try*))
+             (types/eval body ctx bindings)
+             (binding [utils/*in-try* in-try]
+               (types/eval body ctx bindings)))
+     ;; A thread-local cell costs less than binding *in-try* on every try.
+     :clj (if (nil? in-try)
+            (types/eval body ctx bindings)
+            (let [^objects cell (.get ^ThreadLocal utils/in-try-cell)
+                  old (aget cell 0)]
+              (if (identical? old in-try)
+                (types/eval body ctx bindings)
+                (do (aset cell 0 in-try)
+                    (try (types/eval body ctx bindings)
+                         (finally (aset cell 0 old)))))))
+     :cljs (if (or (nil? in-try) (= in-try utils/*in-try*))
+             (types/eval body ctx bindings)
+             (binding [utils/*in-try* in-try]
+               (types/eval body ctx bindings)))))
 
 (defn- eval-try-body
   "Evaluates the try body and applies the catch clauses. No `finally`."
-  [ctx bindings body catches sci-error]
+  [ctx bindings body catches sci-error in-try]
   (try
-    (eval-in-try ctx bindings body catches sci-error)
+    (eval-in-try ctx bindings body in-try)
     (catch #?(:cljd Object :clj Throwable :cljs :default) e
       (eval-catches ctx bindings body catches sci-error e))))
 
@@ -136,9 +146,9 @@
   `finally` is nil when the try form has no finally clause; the when-not guard
   skips evaluating it (the common case). Users not using the (experimental)
   interrupt-fn feature pay no overhead."
-  [ctx bindings body catches finally sci-error]
+  [ctx bindings body catches finally sci-error in-try]
   (try
-    (eval-in-try ctx bindings body catches sci-error)
+    (eval-in-try ctx bindings body in-try)
     (catch #?(:cljd Object :clj Throwable :cljs :default) e
       (eval-catches ctx bindings body catches sci-error e))
     (finally
@@ -146,9 +156,9 @@
         (types/eval finally ctx bindings)))))
 
 (defn eval-try
-  [ctx bindings body catches finally sci-error]
+  [ctx bindings body catches finally sci-error in-try]
   (if (nil? (:interrupt-fn ctx))
-    (eval-try-plain ctx bindings body catches finally sci-error)
+    (eval-try-plain ctx bindings body catches finally sci-error in-try)
     ;; :interrupt-fn is configured. A `finally` that throws would normally mask
     ;; the in-flight exception (host try/finally semantics). An interrupt signal
     ;; must never be masked this way: otherwise sandboxed code could throw from
@@ -156,8 +166,8 @@
     ;; (see #1044). So we run `finally` ourselves and, when an interrupt is
     ;; pending, let it win over a non-interrupt exception from the finally body.
     (if (nil? finally)
-      (eval-try-body ctx bindings body catches sci-error)
-      (let [v (try (eval-try-body ctx bindings body catches sci-error)
+      (eval-try-body ctx bindings body catches sci-error in-try)
+      (let [v (try (eval-try-body ctx bindings body catches sci-error in-try)
                    (catch #?(:cljd Object :clj Throwable :cljs :default) e
                      (try
                        (types/eval finally ctx bindings)
