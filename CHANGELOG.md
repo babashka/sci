@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Speed up `try` with `catch` (about 4x in a native image)
 - Speed up calls to interpreted fns (about 8% in a native image)
 - An excluded or unmapped `clojure.core` macro such as `fn` throws `Unable to resolve symbol` instead of `No matching clause`
 - Fix [#1135](https://github.com/babashka/sci/issues/1135): `ns-unmap` of a default `clojure.core` refer stops it from resolving
