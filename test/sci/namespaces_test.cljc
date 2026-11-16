@@ -259,9 +259,9 @@
                    [(get (ns-refers 'foo) 'zero?) (get (ns-map 'foo) 'zero?) (resolve 'zero?)
                     (some? (get (ns-refers 'foo) 'inc))]"))))
   (testing "an excluded clojure.core macro is an unresolved symbol"
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Unable to resolve symbol: fn"
+    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error) #"Unable to resolve symbol: fn"
                           (eval* "(ns foo (:refer-clojure :exclude [fn])) ((fn [] 1))")))
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Unable to resolve symbol: fn"
+    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error) #"Unable to resolve symbol: fn"
                           (eval* "(ns foo) (ns-unmap 'foo 'fn) ((fn [] 1))")))
     (is (= [1 2] (eval* "(ns foo (:refer-clojure :exclude [fn do])) (defn f [] 1) [(f) (do 2)]"))))
   (testing ":refer-clojure :rename lists the new name in ns-refers"
