@@ -117,6 +117,7 @@
              (types/eval body ctx bindings)
              (binding [utils/*in-try* in-try]
                (types/eval body ctx bindings)))
+     ;; A thread-local cell costs less than binding *in-try* on every try.
      :clj (if (nil? in-try)
             (types/eval body ctx bindings)
             (let [^objects cell (.get ^ThreadLocal utils/in-try-cell)
