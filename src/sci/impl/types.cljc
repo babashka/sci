@@ -189,7 +189,10 @@
    :clj (defprotocol Eval
           (eval [expr ctx ^objects bindings])))
 
-;; Valid as long as every extension of Eval to a non-node returns expr.
+;; Calls a node through the Eval interface and returns any other value as is.
+;; A protocol call site also compiles a class cache and a call through the
+;; protocol fn for extended types. Every extension of Eval in
+;; sci.impl.evaluator returns expr, which makes that path redundant.
 #?(:cljd nil
    :clj (alter-meta! #'eval assoc :inline
                      (fn [expr ctx bindings]

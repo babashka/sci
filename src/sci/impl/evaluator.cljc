@@ -427,6 +427,7 @@
 (def-fn-call)
 
 ;; The following types cannot be treated as constants in the analyzer
+;; Each method must return expr. The :inline on types/eval never calls them.
 #?(:cljd nil
    :clj (extend-protocol types/Eval
           java.lang.Class
