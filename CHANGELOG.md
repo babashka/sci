@@ -10,7 +10,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.15.60
 
 - [#1134](https://github.com/babashka/sci/pull/1134): `:deny` also applies to `ns-publics`, `ns-interns`, `ns-refers`, `ns-map`, `find-var`, `intern`, `alias`, `require :as` and `refer :rename`
 - Document [sandboxing on a JavaScript host](README.md#sandboxing-on-a-javascript-host)
