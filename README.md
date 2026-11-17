@@ -661,6 +661,36 @@ certain number of iterations, check `Thread/interrupted`, etc.
 
 See [doc/interrupt.md](doc/interrupt.md) for full documentation.
 
+### Sandboxing on a JavaScript host
+
+<!-- PROSE: sandbox unsafe on JS by default; aget aset unchecked-get unchecked-set type read any property; reach Function constructor; on Node.js reaches process -->
+
+``` clojure
+(let [F (aget (aget "x" "constructor") "constructor")]
+  ((F "return process.version")))
+;;=> "v22.11.0"
+```
+
+<!-- PROSE: Node.js: disable code generation from strings at startup; v8.setFlagsFromString has no effect; JIT off, interpreter still works -->
+
+``` bash
+NODE_OPTIONS=--disallow-code-generation-from-strings node your-app.js
+```
+
+<!-- PROSE: browser: Content Security Policy without 'unsafe-eval' -->
+
+<!-- PROSE: also remove the fns from the context; amap breaks without aget; or override with fns that accept numeric index only, type throws on Function; array check on first arg not enough -->
+
+``` clojure
+(sci/init {:namespaces {'clojure.core {'aget nil
+                                       'aset nil
+                                       'unchecked-get nil
+                                       'unchecked-set nil
+                                       'type nil}}})
+```
+
+<!-- PROSE: neither limits CPU or memory; :interrupt-fn bounds iterations; run untrusted code in separate process with timeout and memory limit, e.g. --max-old-space-size -->
+
 ## REPL
 
 Implementing a REPL can be done using the following functions:
