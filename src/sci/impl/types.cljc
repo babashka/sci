@@ -189,6 +189,18 @@
    :clj (defprotocol Eval
           (eval [expr ctx ^objects bindings])))
 
+;; Calls a node through the Eval interface and returns any other value as is.
+;; A protocol call site would also compile a class cache and a call through
+;; the protocol fn. Eval is not extended to other types.
+#?(:cljd nil
+   :clj (alter-meta! #'eval assoc :inline
+                     (fn [expr ctx bindings]
+                       (let [e (gensym "expr")]
+                         `(let [~e ~expr]
+                            (if (instance? sci.impl.types.Eval ~e)
+                              (.eval ~(with-meta e {:tag 'sci.impl.types.Eval}) ~ctx ~bindings)
+                              ~e))))))
+
 ;; The single eval-availability probe for the whole runtime (the jit and
 ;; interop's accessor fast path both consume it). Lives here (dependency
 ;; root) so no cycles. The runtime opt-out js/globalThis.SCI_DISABLE_JIT

@@ -425,34 +425,3 @@
            ~@cases)))))
 
 (def-fn-call)
-
-;; The following types cannot be treated as constants in the analyzer
-#?(:cljd nil
-   :clj (extend-protocol types/Eval
-          java.lang.Class
-          (eval [expr _ _]
-            expr)
-          clojure.lang.PersistentArrayMap
-          (eval [expr _ _]
-            expr)
-          clojure.lang.PersistentVector
-          (eval [expr _ _]
-            expr)
-          clojure.lang.Symbol
-          (eval [expr _ _]
-            expr)
-          sci.lang.Namespace
-          (eval [expr _ _]
-            expr)
-          sci.lang.Var
-          (eval [expr _ _]
-            expr)
-          clojure.lang.MultiFn
-          (eval [expr _ _]
-            expr)
-          Object
-          (eval [expr _ _]
-            expr)
-          ;; literal nils are treated like constants, but nil might also happen
-          ;; as a result of analysis
-          nil (eval [_ _ _] nil)))

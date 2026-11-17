@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Speed up evaluation (up to 25% on the JVM) and emit less code per node (0.6 MB off a babashka binary)
 - Speed up `try` with `catch` (about 4x in a native image)
 - Speed up calls to interpreted fns (about 8% in a native image)
 - An excluded or unmapped `clojure.core` macro such as `fn` throws `Unable to resolve symbol` instead of `No matching clause`
