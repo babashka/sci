@@ -206,7 +206,7 @@
       ([a b c] (f3 a b c))
       ([a b c d] (f4 a b c d))
       ([a b c d & more]
-       (apply (arity-fn (+ 4 (count more))) a b c d more)))))
+       (apply (or (find-fn (+ 4 (count more))) no-arity) a b c d more)))))
 
 ;;;; Macros
 
