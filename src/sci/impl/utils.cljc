@@ -71,6 +71,16 @@
 
 (def ^:dynamic *in-try* false)
 
+#?(:cljd nil
+   :clj (def ^ThreadLocal in-try-cell
+          (ThreadLocal/withInitial
+           (reify java.util.function.Supplier
+             (get [_] (doto (object-array 1) (aset 0 false)))))))
+
+#?(:cljd nil
+   :clj (defn current-in-try []
+          (aget ^objects (.get in-try-cell) 0)))
+
 #?(:clj
    (def recorded-callstacks
      "Maps exceptions to their SCI callstacks."
@@ -134,7 +144,7 @@
    (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
   ([ctx _bindings #?(:cljd e :clj ^Throwable e :cljs e) raw-node]
    (if (let [in-try #?(:cljd *in-try*
-                       :clj (or *in-try*
+                       :clj (or (current-in-try)
                                 (not= (:main-thread-id ctx)
                                       (.getId (Thread/currentThread))))
                        :cljs *in-try*)]
@@ -154,7 +164,7 @@
            st (or (when-let [st (:sci.impl/callstack d)]
                     st)
                   (volatile! '()))]
-       #?(:clj (when (and (kw-identical? *in-try* :sci/callstack)
+       #?(:clj (when (and (kw-identical? (current-in-try) :sci/callstack)
                           (not (:sci.impl/callstack d)))
                  ;; Preserve the callstack without wrapping the exception.
                  (let [rst (or (.get ^java.util.Map recorded-callstacks e)
