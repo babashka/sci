@@ -176,28 +176,37 @@
   variadic-fn takes every arg count from variadic-min up."
   [fixed-fns variadic-fn variadic-min fn-name macro?]
   (let [fixed-cnt (alength #?(:cljd ^List fixed-fns :default ^objects fixed-fns))
-        lookup (fn [arg-count]
-                 (let [f (when (< arg-count fixed-cnt)
-                           (aget #?(:cljd ^List fixed-fns :default ^objects fixed-fns) arg-count))]
-                   (if (nil? f)
-                     (if (and (not (nil? variadic-fn))
-                              (>= arg-count variadic-min))
-                       variadic-fn
-                       (throw (new #?(:cljd Exception
-                                      :clj Exception
-                                      :cljs js/Error)
-                                   (let [actual-count (if macro? (- arg-count 2)
-                                                          arg-count)]
-                                     (str "Cannot call " fn-name " with " actual-count " arguments")))))
-                     f)))]
+        find-fn (fn [arg-count]
+                  (let [f (when (< arg-count fixed-cnt)
+                            (aget #?(:cljd ^List fixed-fns :default ^objects fixed-fns) arg-count))]
+                    (if (nil? f)
+                      (when (and (not (nil? variadic-fn))
+                                 (>= arg-count variadic-min))
+                        variadic-fn)
+                      f)))
+        no-arity (fn [& args]
+                   (throw (new #?(:cljd Exception
+                                  :clj Exception
+                                  :cljs js/Error)
+                               (let [arg-count (count args)
+                                     actual-count (if macro? (- arg-count 2)
+                                                      arg-count)]
+                                 (str "Cannot call " fn-name " with " actual-count " arguments")))))
+        arity-fn (fn [arg-count]
+                   (or (find-fn arg-count) no-arity))
+        f0 (arity-fn 0)
+        f1 (arity-fn 1)
+        f2 (arity-fn 2)
+        f3 (arity-fn 3)
+        f4 (arity-fn 4)]
     (fn multi-arity
-      ([] ((lookup 0)))
-      ([a] ((lookup 1) a))
-      ([a b] ((lookup 2) a b))
-      ([a b c] ((lookup 3) a b c))
-      ([a b c d] ((lookup 4) a b c d))
+      ([] (f0))
+      ([a] (f1 a))
+      ([a b] (f2 a b))
+      ([a b c] (f3 a b c))
+      ([a b c d] (f4 a b c d))
       ([a b c d & more]
-       (apply (lookup (+ 4 (count more))) a b c d more)))))
+       (apply (or (find-fn (+ 4 (count more))) no-arity) a b c d more)))))
 
 ;;;; Macros
 
