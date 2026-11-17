@@ -661,6 +661,62 @@ certain number of iterations, check `Thread/interrupted`, etc.
 
 See [doc/interrupt.md](doc/interrupt.md) for full documentation.
 
+### Sandboxing on a JavaScript host
+
+SCI sandboxing on a JS host like Node.js should be considered unsafe. A handful
+of `clojure.core` functions that are enabled by default can read or write any
+property of a JS value: `aget`, `aset`, `unchecked-get`, `unchecked-set` and
+`type`. Using these you can get to the `Function` constructor and evaluate any
+JavaScript. `js/...` globals and dot interop like `(.-constructor x)` are
+blocked in a default context, but these functions are not. They are essential
+for CLJS programs and changing them would break existing programs.
+
+On Node.js such a function has access to `process`:
+
+``` clojure
+(let [F (aget (aget "x" "constructor") "constructor")]
+  ((F "return process.version")))
+;;=> "v22.11.0"
+```
+
+The best way to sandbox an environment is on the host level. In Node.js you can
+limit evaluation of arbitrary code with this option:
+
+``` bash
+NODE_OPTIONS=--disallow-code-generation-from-strings node your-app.js
+```
+
+This makes `new Function(...)` and `eval(...)` throw. The flag must be set at
+startup. Setting it later with `v8.setFlagsFromString` has no effect. SCI keeps
+working with this flag, but without [JIT](#jit-compilation-in-clojurescript).
+
+In the browser, a Content Security Policy without `'unsafe-eval'` has the same
+effect.
+
+On top of that, you can remove the functions from the context:
+
+``` clojure
+(sci/init {:namespaces {'clojure.core {'aget nil
+                                       'aset nil
+                                       'unchecked-get nil
+                                       'unchecked-set nil
+                                       'type nil}}})
+```
+
+Macros that rely on these functions break when you override them with `nil`.
+E.g. `amap` breaks when you remove `aget`.
+
+You can also change them to alternative behaviors. E.g. you could change `aget`,
+`aset`, `unchecked-get` and `unchecked-set` to functions that only accept a
+numeric index, and `type` to a function that throws when it would return
+`Function`. Checking that the first argument is an array is not enough:
+`(aget arr "constructor")` still reaches `Array`.
+
+Neither of the above limits CPU or memory. Use
+[`:interrupt-fn`](#bounding-execution-with-interrupt-fn) to bound execution, or
+run untrusted code in a separate process with a timeout and a memory limit,
+e.g. with `--max-old-space-size`.
+
 ## REPL
 
 Implementing a REPL can be done using the following functions:

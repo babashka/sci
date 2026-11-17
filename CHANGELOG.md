@@ -12,6 +12,8 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- [#1134](https://github.com/babashka/sci/pull/1134): `:deny` also applies to `ns-publics`, `ns-interns`, `ns-refers`, `ns-map`, `find-var`, `intern`, `alias`, `require :as` and `refer :rename`
+- Document [sandboxing on a JavaScript host](README.md#sandboxing-on-a-javascript-host)
 - Speed up calls to multi-arity fns (about 20% in a native image)
 - Speed up evaluation (up to 25% on the JVM) and emit less code per node (0.6 MB off a babashka binary)
 - Speed up `try` with `catch` (about 4x in a native image)
