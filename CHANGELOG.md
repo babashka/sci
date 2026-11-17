@@ -12,6 +12,14 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## 0.15.60
 
+### Highlights
+
+- [Sandboxing](https://github.com/babashka/sci/blob/master/CHANGELOG.md#sandboxing): `:deny` also applies to namespace introspection and aliasing. Document [sandboxing on a JavaScript host](https://github.com/babashka/sci#sandboxing-on-a-javascript-host)
+- [Performance](https://github.com/babashka/sci/blob/master/CHANGELOG.md#performance): speed up evaluation (up to 25% on the JVM), `binding`, `try`, closures and fn calls, 0.6 MB off a babashka binary
+- [Clojure 1.13](https://github.com/babashka/sci/blob/master/CHANGELOG.md#clojure-113): map destructuring with `:req!`, `:excess` and `:missing`, and the `selector` macro
+- [Breaking](https://github.com/babashka/sci/blob/master/CHANGELOG.md#breaking): minimum Clojure version is `1.11.1`
+- [Enhancements / fixes](https://github.com/babashka/sci/blob/master/CHANGELOG.md#enhancements--fixes) to protocols, macros, namespaces and the reader
+
 ### Breaking
 
 - Minimum Clojure version is `1.11.1`
