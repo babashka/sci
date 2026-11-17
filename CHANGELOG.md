@@ -12,51 +12,65 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## 0.15.60
 
+### Breaking
+
+- Minimum Clojure version is `1.11.1`
+- `extend-type`, `extend-protocol` and `extend` on `clojure.lang/IDeref`, `IAtom`, `IAtom2` and `IFn` throw `is not a protocol` on the JVM
+
+### Sandboxing
+
 - [#1134](https://github.com/babashka/sci/pull/1134): `:deny` also applies to `ns-publics`, `ns-interns`, `ns-refers`, `ns-map`, `find-var`, `intern`, `alias`, `require :as` and `refer :rename`
 - Document [sandboxing on a JavaScript host](README.md#sandboxing-on-a-javascript-host)
-- Speed up calls to multi-arity fns (about 20% in a native image)
-- Speed up evaluation (up to 25% on the JVM) and emit less code per node (0.6 MB off a babashka binary)
-- Speed up `try` with `catch` (about 4x in a native image)
-- Speed up calls to interpreted fns (about 8% in a native image)
-- An excluded or unmapped `clojure.core` macro such as `fn` throws `Unable to resolve symbol` instead of `No matching clause`
-- Fix [#1135](https://github.com/babashka/sci/issues/1135): `ns-unmap` of a default `clojure.core` refer stops it from resolving
-- Fix [#1136](https://github.com/babashka/sci/issues/1136): `ns-refers` and `ns-map` leave out vars excluded by `:refer-clojure`
-- `deftype`, `defrecord` and `reify` accept `clojure.lang.IBlockingDeref`
-- `deftype` and `defrecord` methods for built-in interfaces such as `IDeref`, `IFn` and `Object` no longer stay in memory after their context is gone
-- `extend-type`, `extend-protocol` and `extend` on `clojure.lang/IDeref`, `IAtom`, `IAtom2` and `IFn` throw `is not a protocol` on the JVM
-- `extend-type` of a record to `Inst` no longer makes a record with the same name in another context satisfy `Inst`
-- `extends?` returns false for a type that does not implement the protocol
 - Without `:unrestricted`, adding a method to a built-in multimethod such as `clojure.lang/deref` or `inst-ms*` throws unless the dispatch value is a type, and `methods`, `prefers`, `prefer-method` and `remove-all-methods` on them throw
+- A static method used as a value (`(let [f Integer/toHexString] ...)`) obeys `:static-methods` config, like a direct call: denied when unlisted on a closed class, overridden when an override is configured
+
+### Performance
+
+- Speed up evaluation (up to 25% on the JVM) and emit less code per node (0.6 MB off a babashka binary)
+- Speed up calls to multi-arity fns (about 20% in a native image)
+- Speed up calls to interpreted fns (about 8% in a native image)
 - Speed up calls to a named `fn` that does not refer to its own name
+- Speed up `let`, calls of local fns and creation of closures (about 4% on malli validators in native bb)
+- Speed up closures that capture locals (up to 21% on the JVM, 24% on malli validators in native bb)
+- Speed up `binding` (about 4x on the JVM, 2x in native bb) and `try` without a catch (about 4x)
+- Speed up `try` with `catch` (about 4x in a native image)
+- Speed up `try` with `finally` if `:interrupt-fn` is set (about 15% in a native image)
 - Speed up analysis of `fn` params (up to 27% on the JVM)
 - Speed up analysis of closures (about 7% on the JVM)
 - Speed up analysis of `do` bodies (about 4% on the JVM)
 - Allocate up to 15% less when analyzing symbols on the JVM
-- A static method used as a value (`(let [f Integer/toHexString] ...)`) obeys `:static-methods` config, like a direct call: denied when unlisted on a closed class, overridden when an override is configured
-- Speed up `try` with `finally` if `:interrupt-fn` is set (about 15% in a native image)
-- Copy `:added` and `:deprecated` into the metadata of built-in vars
-- `clojure.repl/print-doc` is a private var, so `ns-interns` of `clojure.repl` returns only vars
-- `read` at the end of a `LineNumberingPushbackReader` reads the underlying stream once
-- `clojure.repl/doc` on `&`, `catch` and `finally` prints the docs of `fn` and `try`
-- Speed up `let`, calls of local fns and creation of closures (about 4% on malli validators in native bb)
-- Speed up closures that capture locals (up to 21% on the JVM, 24% on malli validators in native bb)
-- Speed up `binding` (about 4x on the JVM, 2x in native bb) and `try` without a catch (about 4x)
+- `ns-map` is 6x faster and `ns-refers` 60x
+
+### Clojure 1.13
+
 - Clojure 1.13 map destructuring as of clojure/clojure 33fb064d (1.13.0-alpha11): `:req!`, `:excess` and `:missing` directives, `:defaults` removed. Adds the `selector` macro to `clojure.core`.
 - A qualified key in `:ns/keys` keeps its own namespace: `{:foo/keys [bar/x]}` looks up `:bar/x`, not `:foo/x`
 - `:ns/keys` qualifies unqualified keywords after `&`: `{:foo/keys! [a & :b]}` selects `:foo/b`
-- Minimum Clojure version is `1.11.1`
 - `merge` returns the other argument unchanged if one argument is nil (Clojure 1.13)
+
+### Enhancements / fixes
+
+- Fix [#1135](https://github.com/babashka/sci/issues/1135): `ns-unmap` of a default `clojure.core` refer stops it from resolving
+- Fix [#1136](https://github.com/babashka/sci/issues/1136): `ns-refers` and `ns-map` leave out vars excluded by `:refer-clojure`
+- Fix `instance?` on a protocol returning `true` for a type the protocol is extended to, such as `nil` or `Object`, on the JVM
+- `instance?` on a marker protocol implemented in a `deftype` body returns `true`, on the JVM
+- `satisfies?` on a marker protocol implemented in a `deftype` body returns `true`
+- `extends?` returns false for a type that does not implement the protocol
+- `extend-type` of a record to `Inst` no longer makes a record with the same name in another context satisfy `Inst`
+- `deftype`, `defrecord` and `reify` accept `clojure.lang.IBlockingDeref`
+- `deftype` and `defrecord` methods for built-in interfaces such as `IDeref`, `IFn` and `Object` no longer stay in memory after their context is gone
+- An excluded or unmapped `clojure.core` macro such as `fn` throws `Unable to resolve symbol` instead of `No matching clause`
 - A macro var in call position expands, in analysis, `macroexpand-1` and `macroexpand`: `(eval (list #'when true 1))`
 - Fix stack overflow in `clojure.walk/macroexpand-all` on a `reify` form
 - `for`, `if-let`, `when-let`, `if-some`, `when-some`, `when-first` and `condp` name their internal locals with `__`, like Clojure's auto-gensyms
 - `ns-aliases` keeps the alias of a removed namespace
 - A var created by `intern` has the unqualified symbol, as in Clojure
-- `ns-map` is 6x faster and `ns-refers` 60x
 - `import` is a macro that expands to `(do (clojure.core/import* "pkg.Class") ...)`
+- Copy `:added` and `:deprecated` into the metadata of built-in vars
+- `clojure.repl/print-doc` is a private var, so `ns-interns` of `clojure.repl` returns only vars
+- `clojure.repl/doc` on `&`, `catch` and `finally` prints the docs of `fn` and `try`
+- `read` at the end of a `LineNumberingPushbackReader` reads the underlying stream once
 - Fix the location of a top-level symbol followed by a newline or the end of input when reading from a `LineNumberingPushbackReader`
-- Fix `instance?` on a protocol returning `true` for a type the protocol is extended to, such as `nil` or `Object`, on the JVM
-- `instance?` on a marker protocol implemented in a `deftype` body returns `true`, on the JVM
-- `satisfies?` on a marker protocol implemented in a `deftype` body returns `true`
 
 ## 0.15.59
 
