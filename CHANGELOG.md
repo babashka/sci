@@ -14,7 +14,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ### Highlights
 
-- [Sandboxing](https://github.com/babashka/sci/blob/master/CHANGELOG.md#sandboxing): `:deny` also applies to namespace introspection and aliasing. Document [sandboxing on a JavaScript host](https://github.com/babashka/sci#sandboxing-on-a-javascript-host)
+- [Sandboxing](https://github.com/babashka/sci/blob/master/CHANGELOG.md#sandboxing): `:deny` also applies to namespace introspection and aliasing. Document [why sandboxing on a JavaScript host is unsafe](https://github.com/babashka/sci#sandboxing-on-a-javascript-host-is-unsafe)
 - [Performance](https://github.com/babashka/sci/blob/master/CHANGELOG.md#performance): speed up evaluation (up to 25% on the JVM), `binding`, `try`, closures and fn calls, 0.6 MB off a babashka binary
 - [Clojure 1.13](https://github.com/babashka/sci/blob/master/CHANGELOG.md#clojure-113): map destructuring with `:req!`, `:excess` and `:missing`, and the `selector` macro
 - [Breaking](https://github.com/babashka/sci/blob/master/CHANGELOG.md#breaking): minimum Clojure version is `1.11.1`
@@ -28,7 +28,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ### Sandboxing
 
 - [#1134](https://github.com/babashka/sci/pull/1134): `:deny` also applies to `ns-publics`, `ns-interns`, `ns-refers`, `ns-map`, `find-var`, `intern`, `alias`, `require :as` and `refer :rename`
-- Document [sandboxing on a JavaScript host](README.md#sandboxing-on-a-javascript-host)
+- Document [why sandboxing on a JavaScript host is unsafe](README.md#sandboxing-on-a-javascript-host-is-unsafe)
 - Without `:unrestricted`, adding a method to a built-in multimethod such as `clojure.lang/deref` or `inst-ms*` throws unless the dispatch value is a type, and `methods`, `prefers`, `prefer-method` and `remove-all-methods` on them throw
 - A static method used as a value (`(let [f Integer/toHexString] ...)`) obeys `:static-methods` config, like a direct call: denied when unlisted on a closed class, overridden when an override is configured
 

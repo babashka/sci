@@ -4,7 +4,7 @@ SCI is a sandboxed interpreter. If you use it to evaluate untrusted code, securi
 issues (sandbox escapes) are taken seriously.
 
 SCI sandboxing on a JS host like Node.js should be considered unsafe by
-default. See [Sandboxing on a JavaScript host](README.md#sandboxing-on-a-javascript-host)
+default. See [Sandboxing on a JavaScript host is unsafe](README.md#sandboxing-on-a-javascript-host-is-unsafe)
 for how to make it safe.
 
 ## Reporting a vulnerability

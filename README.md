@@ -661,7 +661,7 @@ certain number of iterations, check `Thread/interrupted`, etc.
 
 See [doc/interrupt.md](doc/interrupt.md) for full documentation.
 
-### Sandboxing on a JavaScript host
+### Sandboxing on a JavaScript host is unsafe
 
 SCI sandboxing on a JS host like Node.js should be considered unsafe. A handful
 of `clojure.core` functions that are enabled by default can read or write any
