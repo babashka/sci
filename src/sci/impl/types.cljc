@@ -190,9 +190,8 @@
           (eval [expr ctx ^objects bindings])))
 
 ;; Calls a node through the Eval interface and returns any other value as is.
-;; A protocol call site also compiles a class cache and a call through the
-;; protocol fn for extended types. Every extension of Eval in
-;; sci.impl.evaluator returns expr, which makes that path redundant.
+;; A protocol call site would also compile a class cache and a call through
+;; the protocol fn. Eval is not extended to other types.
 #?(:cljd nil
    :clj (alter-meta! #'eval assoc :inline
                      (fn [expr ctx bindings]
