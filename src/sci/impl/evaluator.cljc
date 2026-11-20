@@ -210,10 +210,8 @@
   ;; site skips config resolution and meth-cache, reflecting directly on the
   ;; cached method list. override/deny/:closed is resolved only on a cache miss,
   ;; so a site using no member config pays nothing for the feature on the hot path.
-  [ctx bindings instance-expr method-str method-str-unmunged method-sym field-access args #?(:cljs allowed) arg-count arg-types cache]
-  (let [#?@(:clj [instance-meta (meta instance-expr)
-                  tag-class (:tag-class instance-meta)])
-        instance-expr* (types/eval instance-expr ctx bindings)
+  [ctx bindings instance-expr method-str method-str-unmunged method-sym field-access args #?(:cljs allowed) arg-count arg-types cache #?(:clj tag-class)]
+  (let [instance-expr* (types/eval instance-expr ctx bindings)
         v (get-from-type instance-expr* method-str method-str-unmunged #?(:cljd arg-count :clj arg-count :cljs args))]
     (if-not (identical? none-sentinel v)
       v
@@ -225,8 +223,17 @@
                                         (class instance-expr*))
                               :cljs (type instance-expr*))
             env @(:env ctx)
-            class->opts (:class->opts env)
-            #?@(:cljd [] :default [cached @cache])]
+            #?@(:cljd [] :default [cached @cache])
+            ;; slot 6 holds the last env seen with a valid entry, so a hit
+            ;; skips the :class->opts lookup while env is unchanged
+            #?@(:clj [hit? (and cached
+                                (identical? instance-class (aget ^objects cached 1))
+                                (or (identical? env (aget ^objects cached 6))
+                                    (when (identical? (:class->opts env) (aget ^objects cached 0))
+                                      (aset ^objects cached 6 env)
+                                      true)))])
+            class->opts #?(:clj (when-not hit? (:class->opts env))
+                           :default (:class->opts env))]
         #?(:cljd
            ;; cljd has no reflection: interop dispatches through override fns
            ;; keyed on the :class Type object (runtimeType), every member is
@@ -246,9 +253,10 @@
            :default
            ;; cache keyed on class->opts identity too: merge-opts swaps in a fresh
            ;; map, so a config change invalidates the cache for free
-           (if (and cached
-                      (identical? class->opts (aget #?(:clj ^objects cached :cljs cached) 0))
-                      (identical? instance-class (aget #?(:clj ^objects cached :cljs cached) 1)))
+           (if #?(:clj hit?
+                  :cljs (and cached
+                             (identical? class->opts (aget cached 0))
+                             (identical? instance-class (aget cached 1))))
                ;; Fast path: This class previously resolved to plain interop.
                ;; This path uses the site's resolved method. Without an entry,
                ;; it reflects on the cached target class. :public-class can
@@ -297,7 +305,7 @@
                          :reflect
                          #?(:clj (let [field (interop/get-instance-field target-class method-str)]
                                    (when cache?
-                                     (vreset! cache (object-array [class->opts instance-class target-class nil field nil])))
+                                     (vreset! cache (object-array [class->opts instance-class target-class nil field nil env])))
                                    (.get ^java.lang.reflect.Field field instance-expr*))
                             :cljs (do (when cache?
                                         (vreset! cache (object-array [class->opts instance-class target-class])))
@@ -310,7 +318,7 @@
                          (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr)
                          :reflect
                          #?(:clj (let [methods (interop/instance-method-list ctx target-class method-str arg-count)
-                                       arr (object-array [class->opts instance-class target-class methods nil nil])]
+                                       arr (object-array [class->opts instance-class target-class methods nil nil env])]
                                    (when cache?
                                      (vreset! cache arr))
                                    (interop/invoke-instance-method-cached ctx bindings instance-expr* target-class method-str (when cache? cache) arr args arg-count arg-types))
