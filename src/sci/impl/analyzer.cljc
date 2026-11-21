@@ -272,13 +272,18 @@
               :try "Cannot recur across try"
               "Can only recur from tail position") ~'expr))
          (let [~'params (:params ~'ctx)
-               ~expected-count-sym (count ~'params)
+               this-node# (:recur-this ~'ctx)
+               ~expected-count-sym (cond-> (count ~'params) this-node# dec)
+               ~arg-count-sym (count ~'analyzed-children)
+               _# (when-not (= ~expected-count-sym ~arg-count-sym)
+                    (throw-error-with-location
+                     (str "Mismatched argument count to recur, expected: "
+                          ~expected-count-sym " args, got: " ~arg-count-sym)
+                     ~'expr))
+               ~'analyzed-children (if this-node#
+                                     (into [this-node#] ~'analyzed-children)
+                                     ~'analyzed-children)
                ~arg-count-sym (count ~'analyzed-children)]
-           (when-not (= ~expected-count-sym ~arg-count-sym)
-             (throw-error-with-location
-              (str "Mismatched argument count to recur, expected: "
-                   ~expected-count-sym " args, got: " ~arg-count-sym)
-              ~'expr))
            (case ~arg-count-sym
              ~@(concat
                 [0 `(let [recur# recur] (sci.impl.types/->Node recur# nil))]
@@ -357,6 +362,8 @@
         ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)
         ctx (update ctx :parents conj (or var-arg-name fixed-arity))
         _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) iden->invoke-idx)
+        ctx (assoc ctx :recur-this (when (:sci.impl/method (meta binding-vector))
+                                     (analyze ctx (first param-names))))
         ;; Transform async bodies before analysis
         body-exprs #?(:cljd body-exprs
                       :clj body-exprs
