@@ -325,8 +325,7 @@
                    ~@body)]}))))
 
 (defn mark-method
-  "Returns method, a reify, deftype or defrecord method form, with :sci.impl/method on its params.
-  recur in a fn with these params leaves this unchanged and takes the other params."
+  "Returns method, a reify, deftype or defrecord method form, with :sci.impl/method on its params."
   [method]
   (let [[mname params & body] method]
     (if (vector? params)

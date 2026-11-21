@@ -272,18 +272,14 @@
               :try "Cannot recur across try"
               "Can only recur from tail position") ~'expr))
          (let [~'params (:params ~'ctx)
-               this-node# (:recur-this ~'ctx)
-               ~expected-count-sym (cond-> (count ~'params) this-node# dec)
-               ~arg-count-sym (count ~'analyzed-children)
-               _# (when-not (= ~expected-count-sym ~arg-count-sym)
-                    (throw-error-with-location
-                     (str "Mismatched argument count to recur, expected: "
-                          ~expected-count-sym " args, got: " ~arg-count-sym)
-                     ~'expr))
-               ~'analyzed-children (if this-node#
-                                     (into [this-node#] ~'analyzed-children)
-                                     ~'analyzed-children)
+               ~expected-count-sym (count ~'params)
                ~arg-count-sym (count ~'analyzed-children)]
+           (when-not (= ~expected-count-sym ~arg-count-sym)
+             (let [this-count# (if (:recur-this ~'ctx) 1 0)]
+               (throw-error-with-location
+                (str "Mismatched argument count to recur, expected: "
+                     (- ~expected-count-sym this-count#) " args, got: " (- ~arg-count-sym this-count#))
+                ~'expr)))
            (case ~arg-count-sym
              ~@(concat
                 [0 `(let [recur# recur] (sci.impl.types/->Node recur# nil))]
@@ -362,6 +358,7 @@
         ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)
         ctx (update ctx :parents conj (or var-arg-name fixed-arity))
         _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) iden->invoke-idx)
+        ;; recur in a reify, deftype or defrecord method leaves this unchanged
         ctx (assoc ctx :recur-this (when (:sci.impl/method (meta binding-vector))
                                      (analyze ctx (first param-names))))
         ;; Transform async bodies before analysis
@@ -1937,6 +1934,9 @@
     import (analyze-import ctx expr)
     clojure.core/import* (analyze-import ctx (with-meta (list* 'import (map symbol (rest expr))) (meta expr)))
     recur (let [children (analyze-children (without-recur-target ctx) (rest expr))
+                children (if-let [this-node (:recur-this ctx)]
+                           (into [this-node] children)
+                           children)
                 node (return-recur ctx expr children)]
             (t/attach-ast node [:recur children]))
     ;; Available as macro, but here for optimized version
