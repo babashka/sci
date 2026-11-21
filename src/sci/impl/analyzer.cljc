@@ -1191,11 +1191,12 @@
                       (when-let [t (interop/resolve-type-hint ctx t)]
                         (do (vreset! has-types? true)
                             (aset arg-types idx t)))))))
-       (with-meta (let [cache (volatile! nil)]
+       (with-meta (let [cache (volatile! nil)
+                        tag-class (:tag-class (meta instance-expr))]
                     (sci.impl.types/->Node
                      (eval/eval-instance-method-invocation
                       ctx bindings instance-expr meth-name meth-name* meth-sym field-access args arg-count
-                      (when @has-types? arg-types) cache)
+                      (when @has-types? arg-types) cache tag-class)
                      stack))
          {::instance-expr instance-expr
           ::method-name method-name

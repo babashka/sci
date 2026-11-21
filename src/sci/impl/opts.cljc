@@ -10,14 +10,16 @@
                       [sci.impl.types ICustomType])]))
 
 #?(:clj
-   (defrecord Env [namespaces imports load-fn]))
+   (defrecord Env [namespaces imports load-fn class->opts]))
 
 (def namespace-syms (keys namespaces/namespaces))
 
 (defn init-env! [env aliases namespaces classes raw-classes imports
                  load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases]
   (swap! env (fn [env]
-               (let [env-nss (:namespaces env)
+               (let [env #?(:clj (if (instance? Env env) env (map->Env env))
+                            :default env)
+                     env-nss (:namespaces env)
                      namespaces (merge-with merge
                                             (or
                                              ;; either the env has already got namespaces
@@ -45,7 +47,7 @@
                      #?@(:cljs [js-libs (merge (:js-libs env) js-libs)])]
                  ;; TODO: is the first case ever hit?
                  (if-not env
-                   #?(:clj (->Env namespaces imports load-fn)
+                   #?(:clj (->Env namespaces imports load-fn nil)
                       :default {:namespaces namespaces
                                 :imports imports
                                 :load-fn load-fn
