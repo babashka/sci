@@ -187,6 +187,12 @@
                        (countdown (T.) 10000)
                        (countdown (R. 1) 10000)]"
                      nil))))
+  (testing "recur with this in a reify method throws a mismatched argument count"
+    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+          #"Mismatched argument count to recur, expected: 1 args, got: 2"
+          (tu/eval* "(defprotocol P (countdown [this n]))
+                     (reify P (countdown [this n] (if (zero? n) :done (recur this (dec n)))))"
+                    nil))))
   (testing "recur in a method re-destructures a destructured parameter"
     (is (= [3 0]
            (tu/eval* "(defprotocol P (f [this m]))
