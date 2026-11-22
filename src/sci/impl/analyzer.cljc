@@ -360,7 +360,7 @@
         _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) iden->invoke-idx)
         ;; recur in a reify, deftype or defrecord method leaves this unchanged
         ctx (assoc ctx :recur-this (when (:sci.impl/method (meta binding-vector))
-                                     (analyze ctx (first param-names))))
+                                     (get bindings (first param-names))))
         ;; Transform async bodies before analysis
         body-exprs #?(:cljd body-exprs
                       :clj body-exprs
@@ -1934,8 +1934,11 @@
     import (analyze-import ctx expr)
     clojure.core/import* (analyze-import ctx (with-meta (list* 'import (map symbol (rest expr))) (meta expr)))
     recur (let [children (analyze-children (without-recur-target ctx) (rest expr))
-                children (if-let [this-node (:recur-this ctx)]
-                           (into [this-node] children)
+                children (if-let [this-iden (:recur-this ctx)]
+                           (let [this-sym (gensym "this")
+                                 this-ctx (-> (without-recur-target ctx)
+                                              (assoc-in [:bindings this-sym] this-iden))]
+                             (into [(analyze this-ctx this-sym)] children))
                            children)
                 node (return-recur ctx expr children)]
             (t/attach-ast node [:recur children]))
