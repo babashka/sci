@@ -989,10 +989,16 @@
 (defn analyze-lazy-seq
   [ctx expr]
   (let [body (rest expr)
-        ctx (with-recur-target ctx true) ;; body is analyzed in context of implicit no-arg fn
-        ana (return-do ctx expr body)]
+        ctx (-> (with-recur-target ctx true) ;; body is analyzed in context of implicit no-arg fn
+                (assoc :params [] :recur-this nil))
+        ana (return-do ctx expr body)
+        recur-val recur]
     (sci.impl.types/->Node
-     (lazy-seq (t/eval ana ctx bindings))
+     (lazy-seq (loop []
+                 (let [ret (t/eval ana ctx bindings)]
+                   (if (identical? recur-val ret)
+                     (recur)
+                     ret))))
      nil)))
 
 (defn return-if

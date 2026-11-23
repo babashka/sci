@@ -768,6 +768,13 @@
          (eval* "(fn [f & args]
                    (let [r (apply f args)]
                      (if (fn? r) (recur r) r)))"))))
+  (testing "recur in lazy-seq takes no args and reruns the body"
+    (is (= [3] (eval* "(let [x (atom 0)] (take 1 (lazy-seq (if (< (swap! x inc) 3) (recur) [@x]))))")))
+    (is (fn? (eval* "(fn [a] (lazy-seq (recur)))")))
+    (is (thrown-with-msg?
+         #?(:cljd cljd.core/ExceptionInfo :default Exception)
+         #"Mismatched argument count to recur, expected: 0 args, got: 1"
+         (eval* "(fn [a] (lazy-seq (recur 1)))"))))
   (testing "function with recur may be returned"
     (when-not tu/native?
       (let [f (eval* "(fn f [x] (if (< x 3) (recur (inc x)) x))")]
