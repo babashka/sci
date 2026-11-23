@@ -2383,10 +2383,26 @@
           :cljs #(.createWithCheck PersistentHashMap (into-array %&))
           :default hash-map))))
 
-(defn return-map [ctx the-map analyzed-children]
+(defn return-map-call [ctx the-map analyzed-children]
   (let [mf (map-fn (count analyzed-children))
         node (return-call ctx the-map mf analyzed-children nil nil)]
     (t/attach-ast node [:call-direct mf analyzed-children nil])))
+
+#_{:clj-kondo/ignore [:unused-binding]}
+(defn return-map [ctx the-map analyzed-children]
+  #?(:cljd (return-map-call ctx the-map analyzed-children)
+     :clj (let [^objects nodes (object-array analyzed-children)
+                n (alength nodes)
+                array-map? (<= n 16)]
+            (sci.impl.types/->Node
+             (try (let [^objects kvs (interop/eval-args ctx bindings nodes n)]
+                    (if array-map?
+                      (clojure.lang.PersistentArrayMap/createWithCheck kvs)
+                      (clojure.lang.PersistentHashMap/createWithCheck kvs)))
+                  (catch Throwable e
+                    (rethrow-with-location-of-node ctx bindings e this)))
+             nil))
+     :cljs (return-map-call ctx the-map analyzed-children)))
 
 (defn constant-node? [x]
   #?(:cljd (not (t/eval-node? x))
