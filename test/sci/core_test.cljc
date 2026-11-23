@@ -775,6 +775,9 @@
          #?(:cljd cljd.core/ExceptionInfo :default Exception)
          #"Mismatched argument count to recur, expected: 0 args, got: 1"
          (eval* "(fn [a] (lazy-seq (recur 1)))"))))
+  (testing "lazy-seq in a recurring loop or fn keeps the locals of its iteration"
+    (is (= [0 1 2] (eval* "(loop [i 0 acc []] (if (< i 3) (recur (inc i) (conj acc (lazy-seq [i]))) (map first acc)))")))
+    (is (= [0 1 2] (eval* "(defn g [i acc] (if (< i 3) (recur (inc i) (conj acc (lazy-seq [i]))) (map first acc))) (g 0 [])"))))
   (testing "function with recur may be returned"
     (when-not tu/native?
       (let [f (eval* "(fn f [x] (if (< x 3) (recur (inc x)) x))")]
