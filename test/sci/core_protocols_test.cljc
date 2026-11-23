@@ -60,6 +60,47 @@
        (is (= :timeout (eval* "(deref (promise) 1 :timeout)"))))))
 
 (deftest swap-test
+  (testing "swap! passes 0 to 4 extra args to f"
+    (is (= [1 2 5 11 21]
+           (eval* "(let [a (atom 0)]
+                     [(swap! a inc) (swap! a + 1) (swap! a + 1 2) (swap! a + 1 2 3) (swap! a + 1 2 3 4)])"))))
+  #?(:clj
+     (testing "swap-vals! passes 0 to 4 extra args to f"
+       (is (= [[0 1] [1 2] [2 5] [5 11] [11 21]]
+              (eval* "(let [a (atom 0)]
+                        [(swap-vals! a inc) (swap-vals! a + 1) (swap-vals! a + 1 2)
+                         (swap-vals! a + 1 2 3) (swap-vals! a + 1 2 3 4)])")))))
+  #?(:clj
+     (testing "swap! passes extra args to a reify of IAtom"
+       (is (= [2 6 9]
+              (eval* "(def x (reify clojure.lang.IAtom
+                               (swap [_ f] (f 1))
+                               (swap [_ f a] (f 1 a))
+                               (swap [_ f a b] (f 1 a b))))
+                      [(swap! x inc) (swap! x + 5) (swap! x + 5 3)]")))))
+  #?(:clj
+     (testing "swap! passes the third and later extra args as one seq to the 5-arg swap of a deftype, defrecord and reify"
+       (is (= [1 2 5 11 21]
+              (eval* "(deftype A [^:volatile-mutable v]
+                        clojure.lang.IAtom
+                        (swap [_ f] (set! v (f v)))
+                        (swap [_ f x] (set! v (f v x)))
+                        (swap [_ f x y] (set! v (f v x y)))
+                        (swap [_ f x y args] (set! v (apply f v x y args))))
+                      (let [a (->A 0)]
+                        [(swap! a inc) (swap! a + 1) (swap! a + 1 2) (swap! a + 1 2 3) (swap! a + 1 2 3 4)])")))
+       (is (= [10 [10 16]]
+              (eval* "(defrecord R [st]
+                        clojure.lang.IAtom2
+                        (swap [_ f x y args] (apply swap! st f x y args))
+                        (swapVals [_ f x y args] (apply swap-vals! st f x y args)))
+                      (let [a (->R (atom 0))]
+                        [(swap! a + 1 2 3 4) (swap-vals! a + 1 2 3)])")))
+       (is (= [[1 2 [3 4]] [1 2 [3]]]
+              (eval* "(def x (reify clojure.lang.IAtom2
+                               (swap [_ f a b args] [a b args])
+                               (swapVals [_ f a b args] [a b args])))
+                      [(swap! x + 1 2 3 4) (swap-vals! x + 1 2 3)]")))))
   (testing "fully qualified"
     (is (= 2 (eval* #?(:cljd "(def x (reify cljd.core/ISwap (-swap! [_ f] (f 1)))) (swap! x inc)"
                        :clj "(def x (reify clojure.lang.IAtom (swap [_ f] (f 1)))) (swap! x inc)"
