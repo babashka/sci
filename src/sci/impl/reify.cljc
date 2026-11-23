@@ -2,13 +2,15 @@
   {:no-doc true}
   ;; excluding reify breaks variadic fn compilation on cljd, macro fn named reify-macro there
   (:refer-clojure :exclude [#?@(:cljd [] :default [reify])])
-  #?(:cljd (:require [sci.impl.types :as t])
-     :clj (:require [sci.ctx-store :as store]))
-  #?(:cljs (:require [sci.impl.deftype :as deftype]
-                     [sci.impl.types :as t])))
+  (:require [sci.impl.utils :as utils]
+            #?@(:cljd [[sci.impl.types :as t]]
+                :clj [[sci.ctx-store :as store]]
+                :cljs [[sci.impl.deftype :as deftype]
+                       [sci.impl.types :as t]])))
 
 (defn #?(:cljd reify-macro :clj reify :cljs reify) [form _ & args]
   (let [{classes true methods false} (group-by symbol? args)
+        methods (map utils/mark-method methods)
         methods-by-name (group-by first methods)
         simple-meth #(if (simple-symbol? %) % (symbol (name %)))
         ;; per-method implemented arities (arg count includes this), used to

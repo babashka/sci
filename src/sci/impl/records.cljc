@@ -441,7 +441,7 @@
         protocol-impls (utils/split-when symbol? raw-protocol-impls)
         interfaces (mapv first protocol-impls)
         method-counts (mapv #(count (rest %)) protocol-impls)
-        methods (mapcat rest protocol-impls)]
+        methods (map utils/mark-method (mapcat rest protocol-impls))]
     `(do
        (declare ~constructor-fn-sym ~factory-fn-sym ~map-factory-sym)
        (deftype* ~tagged-name ~class-name ~fields

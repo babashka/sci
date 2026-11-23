@@ -324,6 +324,15 @@
          :body [`(let ~lets
                    ~@body)]}))))
 
+(defn mark-method
+  "Returns method, a reify, deftype or defrecord method form, with :sci.impl/method on its params."
+  [method]
+  (let [[mname params & body] method]
+    (if (vector? params)
+      (with-meta (list* mname (vary-meta params assoc :sci.impl/method true) body)
+        (meta method))
+      method)))
+
 (def unqualify-symbol vars/unqualify-symbol)
 
 (defrecord StackFrame [line column end-line end-column ns file f-meta special])

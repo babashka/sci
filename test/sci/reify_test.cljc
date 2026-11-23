@@ -176,3 +176,34 @@
                                      (~f x#))))
                               (.apply (clj-fn->function inc) 1)))
                    opts))))))))
+
+(deftest method-recur-test
+  (testing "recur in a reify, deftype or defrecord method takes the parameters after this"
+    (is (= [:done :done [1 1]]
+           (tu/eval* "(defprotocol P (countdown [this n]))
+                      (deftype T [] P (countdown [this n] (if (zero? n) :done (recur (dec n)))))
+                      (defrecord R [x] P (countdown [this n] (if (zero? n) [x (:x this)] (recur (dec n)))))
+                      [(countdown (reify P (countdown [this n] (if (zero? n) :done (recur (dec n))))) 10000)
+                       (countdown (T.) 10000)
+                       (countdown (R. 1) 10000)]"
+                     nil))))
+  (testing "recur with this in a reify method throws a mismatched argument count"
+    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+          #"Mismatched argument count to recur, expected: 1 args, got: 2"
+          (tu/eval* "(defprotocol P (countdown [this n]))
+                     (reify P (countdown [this n] (if (zero? n) :done (recur this (dec n)))))"
+                    nil))))
+  (testing "recur in a method re-destructures a destructured parameter"
+    (is (= [3 0]
+           (tu/eval* "(defprotocol P (f [this m]))
+                      (f (reify P (f [this {:keys [a b]}] (if (zero? b) [a b] (recur {:a (inc a) :b (dec b)}))))
+                         {:a 0 :b 3})"
+                     nil))))
+  (testing "recur in an extend-protocol method takes this"
+    (is (= :done
+           (tu/eval* "(defprotocol P (countdown [this n]))
+                      (deftype S [])
+                      (extend-protocol P S
+                        (countdown [this n] (if (zero? n) :done (recur this (dec n)))))
+                      (countdown (S.) 10000)"
+                     nil)))))

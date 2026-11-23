@@ -368,7 +368,7 @@
                                                   orig-this-sym (first args)
                                                   rest-args (rest args)
                                                   this-sym '__sci_this
-                                                  args (vec (cons this-sym rest-args))
+                                                  args (with-meta (vec (cons this-sym rest-args)) (meta args))
                                                   ext-map-binding (gensym)
                                                   bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
                                                   bindings (concat bindings
@@ -416,7 +416,7 @@
                                    (gensym "this_")
                                    orig-this-sym)
                         args (if shadows-this?
-                               (vec (cons this-sym rest-args))
+                               (with-meta (vec (cons this-sym rest-args)) (meta args))
                                args)
                         bindings (mapcat (fn [field]
                                            [field (list (keyword field) this-sym)])
@@ -599,7 +599,7 @@
                                    orig-this-sym (first args)
                                    rest-args (rest args)
                                    this-sym '__sci_this
-                                   args (vec (cons this-sym rest-args))
+                                   args (with-meta (vec (cons this-sym rest-args)) (meta args))
                                    ext-map-binding (gensym)
                                    bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
                                    bindings (concat bindings
@@ -685,7 +685,7 @@
         protocol-impls (utils/split-when symbol? raw-protocol-impls)
         interfaces (mapv first protocol-impls)
         method-counts (mapv #(count (rest %)) protocol-impls)
-        methods (mapcat rest protocol-impls)]
+        methods (map utils/mark-method (mapcat rest protocol-impls))]
     (list 'do
           (list 'declare factory-fn-sym)
           (list* 'deftype* tagged-name class-name fields
