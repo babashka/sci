@@ -274,7 +274,6 @@
          (let [~'params (:params ~'ctx)
                ~expected-count-sym (count ~'params)
                ~arg-count-sym (count ~'analyzed-children)]
-           (when-let [recurs# (:recurs ~'ctx)] (vreset! recurs# true))
            (when-not (= ~expected-count-sym ~arg-count-sym)
              (let [this-count# (if (:recur-this ~'ctx) 1 0)]
                (throw-error-with-location
@@ -360,7 +359,6 @@
         ctx (update ctx :parents conj (or var-arg-name fixed-arity))
         _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) iden->invoke-idx)
         ;; recur in a reify, deftype or defrecord method leaves this unchanged
-        ctx (assoc ctx :recurs (volatile! false))
         ctx (assoc ctx :recur-this (when (:sci.impl/method (meta binding-vector))
                                      (get bindings (first param-names))))
         ;; Transform async bodies before analysis
@@ -989,19 +987,20 @@
     (analyze ctx expansion)))
 
 (defn analyze-lazy-seq
-  [outer-ctx expr]
+  [ctx expr]
   (let [body (rest expr)
-        ctx (-> (with-recur-target outer-ctx true) ;; body is analyzed in context of implicit no-arg fn
-                (assoc :params [] :recur-this nil :recurs nil))
+        ;; in tail position nothing writes the frame after the lazy-seq is created
+        tail? (recur-target? ctx)
+        ctx (-> (with-recur-target ctx true) ;; body is analyzed in context of implicit no-arg fn
+                (assoc :params [] :recur-this nil))
         ana (return-do ctx expr body)
-        recur-val recur
-        recurs (:recurs outer-ctx)]
+        recur-val recur]
     (sci.impl.types/->Node
-     (let [bindings (if (and recurs #?(:clj (.deref ^clojure.lang.Volatile recurs) :default @recurs))
+     (let [bindings (if tail?
+                      bindings
                       #?(:clj (aclone ^objects bindings)
                          :cljs (aclone bindings)
-                         :cljd (.toList ^List bindings))
-                      bindings)]
+                         :cljd (.toList ^List bindings)))]
        (lazy-seq (loop []
                  (let [ret (t/eval ana ctx bindings)]
                    (if (identical? recur-val ret)

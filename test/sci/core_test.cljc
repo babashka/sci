@@ -777,7 +777,12 @@
          (eval* "(fn [a] (lazy-seq (recur 1)))"))))
   (testing "lazy-seq in a recurring loop or fn keeps the locals of its iteration"
     (is (= [0 1 2] (eval* "(loop [i 0 acc []] (if (< i 3) (recur (inc i) (conj acc (lazy-seq [i]))) (map first acc)))")))
-    (is (= [0 1 2] (eval* "(defn g [i acc] (if (< i 3) (recur (inc i) (conj acc (lazy-seq [i]))) (map first acc))) (g 0 [])"))))
+    (is (= [0 1 2] (eval* "(defn g [i acc] (if (< i 3) (recur (inc i) (conj acc (lazy-seq [i]))) (map first acc))) (g 0 [])")))
+    (is (= [1 2 3] (eval* "(let [a (atom 0) acc (atom [])]
+                             (doall (lazy-seq (let [x (swap! a inc)]
+                                                (swap! acc conj (lazy-seq [x]))
+                                                (if (< x 3) (recur) nil))))
+                             (map first @acc))"))))
   (testing "function with recur may be returned"
     (when-not tu/native?
       (let [f (eval* "(fn f [x] (if (< x 3) (recur (inc x)) x))")]
