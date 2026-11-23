@@ -2376,7 +2376,13 @@
      (if (<= children-count 16)
        #?(:clj #(let [^objects arr (into-array Object %&)]
                   (clojure.lang.PersistentArrayMap/createWithCheck arr))
-          :cljs #(.createWithCheck PersistentArrayMap (into-array %&))
+          :cljs (fn
+                  ([a b] (.createWithCheck PersistentArrayMap (array a b)))
+                  ([a b c d] (.createWithCheck PersistentArrayMap (array a b c d)))
+                  ([a b c d e f] (.createWithCheck PersistentArrayMap (array a b c d e f)))
+                  ([a b c d e f g h] (.createWithCheck PersistentArrayMap (array a b c d e f g h)))
+                  ([a b c d e f g h & more]
+                   (.createWithCheck PersistentArrayMap (into-array (list* a b c d e f g h more)))))
           :default array-map)
        #?(:clj #(let [^clojure.lang.ISeq s %&]
                   (clojure.lang.PersistentHashMap/createWithCheck s))
@@ -2387,6 +2393,41 @@
   (let [mf (map-fn (count analyzed-children))
         node (return-call ctx the-map mf analyzed-children nil nil)]
     (t/attach-ast node [:call-direct mf analyzed-children nil])))
+
+#?(:cljd nil
+   :clj
+   (do
+     (defn- create-array-map [^objects kvs]
+       (clojure.lang.PersistentArrayMap/createWithCheck kvs))
+
+     (defn- create-hash-map [^objects kvs]
+       (clojure.lang.PersistentHashMap/createWithCheck kvs))
+
+     (defn- map-node [analyzed-children create]
+       (let [^objects nodes (object-array analyzed-children)
+             n (alength nodes)]
+         (sci.impl.types/->Node
+          (try (create (interop/eval-args ctx bindings nodes n))
+               (catch Throwable e
+                 (rethrow-with-location-of-node ctx bindings e this)))
+          nil)))))
+
+#?(:cljs
+   (defn- vector-fn
+     ([a] [a])
+     ([a b] [a b])
+     ([a b c] [a b c])
+     ([a b c d] [a b c d])
+     ([a b c d & more] (into [a b c d] more))))
+
+#?(:cljs
+   (defn- set-fn
+     ([a] (.createWithCheck PersistentHashSet (array a)))
+     ([a b] (.createWithCheck PersistentHashSet (array a b)))
+     ([a b c] (.createWithCheck PersistentHashSet (array a b c)))
+     ([a b c d] (.createWithCheck PersistentHashSet (array a b c d)))
+     ([a b c d & more]
+      (.createWithCheck PersistentHashSet (into-array (list* a b c d more))))))
 
 (defn constant-node? [x]
   #?(:cljd (not (t/eval-node? x))
@@ -2418,7 +2459,12 @@
                         (apply mf analyzed-children))))
         analyzed-map (if const?
                        (->constant const-val)
-                       (return-map ctx expr analyzed-children))
+                       #?(:cljd (return-map ctx expr analyzed-children)
+                          :clj (map-node analyzed-children
+                                             (if (<= (count analyzed-children) 16)
+                                               create-array-map
+                                               create-hash-map))
+                          :cljs (return-map ctx expr analyzed-children)))
         analyzed-meta (when m (analyze ctx m))
         ret (if analyzed-meta
               (sci.impl.types/->Node
@@ -2521,7 +2567,8 @@
                                           ;; relying on analyze-children to
                                           ;; return a vector
                                           identity
-                                          vector expr m)
+                                          #?(:cljd vector :clj vector :cljs vector-fn)
+                                          expr m)
        (set? expr) (analyze-vec-or-set ctx set
                                        #?(:cljd (fn [& xs]
                                                   (loop [s #{} xs (seq xs)]
@@ -2532,7 +2579,7 @@
                                                           (recur (conj s x) (next xs))))
                                                       s)))
                                           :clj #(clojure.lang.PersistentHashSet/createWithCheck ^clojure.lang.ISeq %&)
-                                          :cljs #(.createWithCheck PersistentHashSet (into-array %&))
+                                          :cljs set-fn
                                           :default vector)
                                        expr m)
        (seq? expr) (if (seq expr)

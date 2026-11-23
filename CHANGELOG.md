@@ -17,6 +17,8 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix [#1146](https://github.com/babashka/sci/pull/1146): `recur` in a `reify`, `deftype` or `defrecord` method takes the parameters after `this`
 - Fix [#1145](https://github.com/babashka/sci/issues/1145): `recur` in `lazy-seq` takes no args and reruns the body
 - Fix `lazy-seq` in a recurring `loop` or fn reading the locals of a later iteration
+- Speed up map literals with non-constant keys or values (about 6x on the JVM)
+- Speed up map, vector and set literals with non-constant elements in CLJS (map and vector about 4x)
 
 ## 0.15.60
 

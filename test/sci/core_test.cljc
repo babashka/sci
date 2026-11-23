@@ -115,7 +115,16 @@
                       :e {:a *in*}}))))
   (testing "duplicate keys"
     (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :default Exception) #"Duplicate key" (sci/eval-string "(let [a 1 b 1] #{a b})")))
-    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :default Exception) #"Duplicate key" (sci/eval-string "(let [a 1 b 1] {a 1 b 2})"))))
+    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :default Exception) #"Duplicate key" (sci/eval-string "(let [a 1 b 1] {a 1 b 2})")))
+    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :default Exception) #"Duplicate key"
+                          (sci/eval-string "(let [a 1 b 1] {a 1 b 2 3 3 4 4 5 5 6 6 7 7 8 8 9 9})"))))
+  (testing "a map literal of 9 non-constant entries returns a hash map"
+    (is (= (zipmap (range 9) (range 9))
+           (sci/eval-string "(let [a 0] {a 0 1 1 2 2 3 3 4 4 5 5 6 6 7 7 8 8})")))
+    #?(:clj (is (instance? clojure.lang.PersistentHashMap
+                           (sci/eval-string "(let [a 0] {a 0 1 1 2 2 3 3 4 4 5 5 6 6 7 7 8 8})")))))
+  (testing "a set literal of non-constant elements returns a set"
+    (is (= #{1 2 3 4 5} (sci/eval-string "(let [a 1] #{a 2 3 4 5})"))))
   (testing "quoting"
     (is (= {:a '*in*} (eval* 1 (str "'{:a *in*}"))))
     (is (= '#{1 2 3 *in*} (eval* 4 "'#{1 2 3 *in*}")))
