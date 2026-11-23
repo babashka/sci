@@ -154,9 +154,9 @@
      ([ref f a1 a2]
       (let [methods (types/getMethods ref)]
         ((get methods 'swap) ref f a1 a2)))
-     ([ref f a1 a2 & args]
+     ([ref f a1 a2 args]
       (let [methods (types/getMethods ref)]
-        (apply (get methods 'swap) ref f a1 a2 args)))))
+        ((get methods 'swap) ref f a1 a2 args)))))
 
 #?(:clj
    (defmethod reset :sci.impl.protocols/reified [ref v]
@@ -179,9 +179,9 @@
      ([ref f a1 a2]
       (let [methods (types/getMethods ref)]
         ((get methods 'swapVals) ref f a1 a2)))
-     ([ref f a1 a2 & args]
+     ([ref f a1 a2 args]
       (let [methods (types/getMethods ref)]
-        (apply (get methods 'swapVals) ref f a1 a2 args)))))
+        ((get methods 'swapVals) ref f a1 a2 args)))))
 
 #?(:clj
    (defmethod resetVals :sci.impl.protocols/reified [ref v]
@@ -191,9 +191,11 @@
 ;;;; Defaults
 
 #?(:clj
-   (defmethod swap :default [ref f & args]
-     ;; TODO: optimize arities
-     (apply clojure.core/swap! ref f args)))
+   (defmethod swap :default
+     ([ref f] (clojure.core/swap! ref f))
+     ([ref f a1] (clojure.core/swap! ref f a1))
+     ([ref f a1 a2] (clojure.core/swap! ref f a1 a2))
+     ([ref f a1 a2 args] (apply clojure.core/swap! ref f a1 a2 args))))
 
 #?(:clj
    (defmethod reset :default [ref v]
@@ -204,8 +206,11 @@
      (compare-and-set! ref old new)))
 
 #?(:clj
-   (defmethod swapVals :default [ref & args]
-     (apply swap-vals! ref args)))
+   (defmethod swapVals :default
+     ([ref f] (swap-vals! ref f))
+     ([ref f a1] (swap-vals! ref f a1))
+     ([ref f a1 a2] (swap-vals! ref f a1 a2))
+     ([ref f a1 a2 args] (apply swap-vals! ref f a1 a2 args))))
 
 #?(:clj
    (defmethod resetVals :default [ref v]
@@ -230,7 +235,7 @@
      ([ref f x y & args]
       (if (instance? clojure.lang.IAtom ref)
         (apply clojure.core/swap! ref f x y args)
-        (apply swap ref f x y args)))))
+        (swap ref f x y args)))))
 
 #?(:cljd
    (defn swap!* [ref f & args]
@@ -279,7 +284,7 @@
      ([ref f x y & args]
       (if (instance? clojure.lang.IAtom ref)
         (apply clojure.core/swap-vals! ref f x y args)
-        (apply swapVals ref f x y args)))))
+        (swapVals ref f x y args)))))
 
 #?(:clj
    (defn reset-vals!* [ref v]
