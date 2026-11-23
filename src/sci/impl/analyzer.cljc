@@ -989,7 +989,7 @@
 (defn analyze-lazy-seq
   [ctx expr]
   (let [body (rest expr)
-        ;; in tail position nothing writes the frame after the lazy-seq is created
+        ;; recur writes the frame in place, so a lazy-seq copies it, except in tail position, where no recur can follow
         tail? (recur-target? ctx)
         ctx (-> (with-recur-target ctx true) ;; body is analyzed in context of implicit no-arg fn
                 (assoc :params [] :recur-this nil))
