@@ -19,6 +19,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix `lazy-seq` in a recurring `loop` or fn reading the locals of a later iteration
 - Speed up map literals with non-constant keys or values (about 6x on the JVM)
 - Speed up map, vector and set literals with non-constant elements in CLJS (map and vector about 4x)
+- Speed up `swap!` and `swap-vals!` with extra args (about 3.5x on the JVM)
 
 ## 0.15.60
 

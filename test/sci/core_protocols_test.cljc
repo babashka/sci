@@ -60,6 +60,24 @@
        (is (= :timeout (eval* "(deref (promise) 1 :timeout)"))))))
 
 (deftest swap-test
+  (testing "swap! passes 0 to 4 extra args to f"
+    (is (= [1 2 5 11 21]
+           (eval* "(let [a (atom 0)]
+                     [(swap! a inc) (swap! a + 1) (swap! a + 1 2) (swap! a + 1 2 3) (swap! a + 1 2 3 4)])"))))
+  #?(:clj
+     (testing "swap-vals! passes 0 to 4 extra args to f"
+       (is (= [[0 1] [1 2] [2 5] [5 11] [11 21]]
+              (eval* "(let [a (atom 0)]
+                        [(swap-vals! a inc) (swap-vals! a + 1) (swap-vals! a + 1 2)
+                         (swap-vals! a + 1 2 3) (swap-vals! a + 1 2 3 4)])")))))
+  #?(:clj
+     (testing "swap! passes extra args to a reify of IAtom"
+       (is (= [2 6 9]
+              (eval* "(def x (reify clojure.lang.IAtom
+                               (swap [_ f] (f 1))
+                               (swap [_ f a] (f 1 a))
+                               (swap [_ f a b] (f 1 a b))))
+                      [(swap! x inc) (swap! x + 5) (swap! x + 5 3)]")))))
   (testing "fully qualified"
     (is (= 2 (eval* #?(:cljd "(def x (reify cljd.core/ISwap (-swap! [_ f] (f 1)))) (swap! x inc)"
                        :clj "(def x (reify clojure.lang.IAtom (swap [_ f] (f 1)))) (swap! x inc)"

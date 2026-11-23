@@ -214,16 +214,23 @@
 ;;;; Re-routing
 
 #?(:cljd nil :cljs nil :clj
-   (defn swap!* [ref f & args]
-     (if
-         ;; fast-path for host IAtom
-         (instance? clojure.lang.IAtom ref)
-       (if args
-         (apply clojure.core/swap! ref f args)
-         (clojure.core/swap! ref f))
-       (if args
-         (apply swap ref f args)
-         (swap ref f)))))
+   (defn swap!*
+     ([ref f]
+      (if (instance? clojure.lang.IAtom ref)
+        (clojure.core/swap! ref f)
+        (swap ref f)))
+     ([ref f x]
+      (if (instance? clojure.lang.IAtom ref)
+        (clojure.core/swap! ref f x)
+        (swap ref f x)))
+     ([ref f x y]
+      (if (instance? clojure.lang.IAtom ref)
+        (clojure.core/swap! ref f x y)
+        (swap ref f x y)))
+     ([ref f x y & args]
+      (if (instance? clojure.lang.IAtom ref)
+        (apply clojure.core/swap! ref f x y args)
+        (apply swap ref f x y args)))))
 
 #?(:cljd
    (defn swap!* [ref f & args]
@@ -256,10 +263,23 @@
        (compareAndSet ref old new))))
 
 #?(:clj
-   (defn swap-vals!* [ref f & args]
-     (if (instance? clojure.lang.IAtom ref)
-       (apply clojure.core/swap-vals! ref f args)
-       (apply swapVals ref f args))))
+   (defn swap-vals!*
+     ([ref f]
+      (if (instance? clojure.lang.IAtom ref)
+        (clojure.core/swap-vals! ref f)
+        (swapVals ref f)))
+     ([ref f x]
+      (if (instance? clojure.lang.IAtom ref)
+        (clojure.core/swap-vals! ref f x)
+        (swapVals ref f x)))
+     ([ref f x y]
+      (if (instance? clojure.lang.IAtom ref)
+        (clojure.core/swap-vals! ref f x y)
+        (swapVals ref f x y)))
+     ([ref f x y & args]
+      (if (instance? clojure.lang.IAtom ref)
+        (apply clojure.core/swap-vals! ref f x y args)
+        (apply swapVals ref f x y args)))))
 
 #?(:clj
    (defn reset-vals!* [ref v]
