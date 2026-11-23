@@ -141,6 +141,12 @@
 
 (deftest destructure-test
   (is (= 1 (eval* nil "(let [{:keys [a]} {:a 1}] a)")))
+  (testing "map destructuring evaluates the init expression once"
+    (is (= [1 1] (eval* nil "(let [c (atom 0) {:keys [a]} (do (swap! c inc) {:a 1})] [a @c])"))))
+  (testing "map destructuring of a seq binds :as to the map"
+    (is (= [1 {:a 1 :b 2}] (eval* nil "(let [{:keys [a] :as m} (list :a 1 :b 2)] [a m])")))
+    (is (= [1 {:a 1}] (eval* nil "(let [{:keys [a] :as m} (list {:a 1})] [a m])")))
+    (is (= [nil {}] (eval* nil "(let [{:keys [a] :as m} ()] [a m])"))))
   (is (= 1 (eval* nil "(let [{:keys [:a]} {:a 1}] a)")))
   (is (= 42 (eval* nil "(let [k 'foo, a-map {k 42}, {foo-val k} a-map] foo-val)")))
   (is (= 1 (eval* nil "((fn [{:keys [a]}] a) {:a 1})")))

@@ -20,6 +20,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Speed up map literals with non-constant keys or values (about 6x on the JVM)
 - Speed up map, vector and set literals with non-constant elements in CLJS (map and vector about 4x)
 - Speed up `swap!` and `swap-vals!` with extra args (about 3.5x on the JVM)
+- Speed up map destructuring (about 15% on the JVM)
 - Fix `swap!` and `swap-vals!` with 3 or more extra args on a `deftype`, `defrecord` or `reify` of `IAtom` or `IAtom2`
 
 ## 0.15.60

@@ -59,6 +59,22 @@
                            seen-rest?))))
         ret))))
 
+#?(:cljd nil
+   :clj (defn- seq->map [x]
+          (if (instance? clojure.lang.ISeq x)
+            (clojure.core/seq-to-map-for-destructuring x)
+            x)))
+
+;; PATCH: one binding and one call on the JVM, clojure/clojure binds gmap twice
+(defn- bind-map [ret gmap v]
+  (or #?(:cljd nil
+         :clj (-> ret (conj gmap) (conj (list seq->map v))))
+      (-> ret (conj gmap) (conj v)
+          (conj gmap)
+          (conj (list 'if (list seq? gmap)
+                      `(clojure.core/seq-to-map-for-destructuring ~gmap)
+                      gmap)))))
+
 (defn- destmap*
   [pb bvec b v]
   (let [gmap (gensym "map__")
@@ -93,11 +109,7 @@
         ret (reduce (fn [ret e]
                       (conj ret (val e) (defaults (key e))))
                     bvec gdefaults)
-        ret (-> ret (conj gmap) (conj v)
-                (conj gmap)
-                (conj (list 'if (list seq? gmap)
-                            `(clojure.core/seq-to-map-for-destructuring ~gmap)
-                            gmap))
+        ret (-> ret (bind-map gmap v)
                 ((fn [ret]
                    (if (:as b)
                      (conj ret (:as b) gmap)
