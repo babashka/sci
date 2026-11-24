@@ -59,14 +59,16 @@
      (testing "deref with timeout on a promise returns :timeout"
        (is (= :timeout (eval* "(deref (promise) 1 :timeout)"))))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest type-hint-test
-     (testing "a clojure.lang.IDeref hint on an expression, an arg and a let binding"
-       (is (= [1 2 3]
-              (tu/eval* "(defn f [x] (.deref ^clojure.lang.IDeref x))
-                         (defn g [^clojure.lang.IDeref x] (.deref x))
-                         [(f (atom 1)) (g (delay 2)) (let [^clojure.lang.IAtom a (atom 2)] (.swap a inc))]"
-                        {:classes {:allow :all}}))))))
+     (when-not tu/native?
+       (testing "a clojure.lang.IDeref hint on an expression, an arg and a let binding"
+         (is (= [1 2 3]
+                (tu/eval* "(defn f [x] (.deref ^clojure.lang.IDeref x))
+                           (defn g [^clojure.lang.IDeref x] (.deref x))
+                           [(f (atom 1)) (g (delay 2)) (let [^clojure.lang.IAtom a (atom 2)] (.swap a inc))]"
+                          {:classes {:allow :all}})))))))
 
 (deftest swap-test
   (testing "swap! passes 0 to 4 extra args to f"
