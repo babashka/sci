@@ -1158,11 +1158,13 @@
       instance-expr
       (fn [m]
         (if-let [t (:tag m)]
-          (let [clazz (or (interop/resolve-class ctx t)
-                          (records/resolve-record-class ctx t)
-                          (throw-error-with-location
-                           (str "Unable to resolve classname: " t) t))]
-            (assoc m :tag-class clazz))
+          (if-let [clazz (or (interop/resolve-class ctx t)
+                             (records/resolve-record-class ctx t))]
+            (assoc m :tag-class clazz)
+            (if (:class (records/resolve-record-or-protocol-class ctx t))
+              (dissoc m :tag)
+              (throw-error-with-location
+               (str "Unable to resolve classname: " t) t)))
           m)))))
 
 #?(:cljd nil

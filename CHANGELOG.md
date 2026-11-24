@@ -14,6 +14,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ### Enhancements / fixes
 
+- Allow a type hint that names a host interface SCI implements as a protocol, such as `^clojure.lang.IDeref`
 - Fix [#1146](https://github.com/babashka/sci/pull/1146): `recur` in a `reify`, `deftype` or `defrecord` method takes the parameters after `this`
 - Fix [#1145](https://github.com/babashka/sci/issues/1145): `recur` in `lazy-seq` takes no args and reruns the body
 - Fix `lazy-seq` in a recurring `loop` or fn reading the locals of a later iteration
