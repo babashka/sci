@@ -106,7 +106,9 @@
   (toSymbol [_this]
     ;; if we have at least a name from metadata, then build the symbol from that
     (if-let [sym-name (some-> (:name meta) name)]
-      (symbol (some-> (:ns meta) types/getName name) sym-name)
+      (symbol (or (some-> (:ns meta) types/getName name)
+                  (some-> sym namespace))
+              sym-name)
       ;; otherwise, fall back to the symbol
       sym))
   (isMacro [_]

@@ -1196,6 +1196,14 @@
     (is (= 72
            (eval* "((fn foo [x] (if (= 72 x) x (foo (inc x)))) 0)")))))
 
+(deftest new-var-qualified-symbol-test
+  (let [v (sci/new-var 'foo/bar 1)]
+    (testing "a var made from a qualified symbol prints with its namespace"
+      (is (= "#'foo/bar" (str v))))
+    (testing "syntax-quote qualifies a var made from a qualified symbol"
+      (is (= 'foo/bar (sci/eval-string "(ns foo) `bar"
+                                       {:namespaces {'foo {'bar v}}}))))))
+
 (deftest syntax-errors
   (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error) #"simple symbol"
                         (eval* "(def f/b 1)")))

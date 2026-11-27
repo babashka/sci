@@ -14,6 +14,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ### Enhancements / fixes
 
+- Fix a var made by `sci/new-var` from a qualified symbol losing its namespace in syntax-quote and printing
 - Allow a type hint that names a host interface SCI implements as a protocol, such as `^clojure.lang.IDeref`
 - Fix [#1146](https://github.com/babashka/sci/pull/1146): `recur` in a `reify`, `deftype` or `defrecord` method takes the parameters after `this`
 - Fix [#1145](https://github.com/babashka/sci/issues/1145): `recur` in `lazy-seq` takes no args and reruns the body
